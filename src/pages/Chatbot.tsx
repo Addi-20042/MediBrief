@@ -1,0 +1,302 @@
+import { useState, useRef, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import Layout from "@/components/layout/Layout";
+import {
+  MessageCircle,
+  Send,
+  Loader2,
+  Bot,
+  User,
+  Sparkles,
+  Trash2,
+  AlertCircle,
+} from "lucide-react";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
+
+const Chatbot = () => {
+  const [messages, setMessages] = useState<Message[]>([
+    {
+      role: "assistant",
+      content: "Hello! I'm your Medical AI Assistant. I can help you with health-related questions, explain medical terms, and provide general wellness guidance. How can I assist you today?",
+    },
+  ]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const quickQuestions = [
+    "What are common symptoms of the flu?",
+    "How can I improve my sleep quality?",
+    "What should I eat for a healthy heart?",
+    "How do I manage stress effectively?",
+  ];
+
+  useEffect(() => {
+    // Scroll to bottom when messages change
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
+  }, [messages]);
+
+  const streamChat = async (userMessages: Message[]) => {
+    const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+
+    const response = await fetch(CHAT_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      },
+      body: JSON.stringify({ messages: userMessages }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || "Failed to get response");
+    }
+
+    if (!response.body) {
+      throw new Error("No response body");
+    }
+
+    return response;
+  };
+
+  const sendMessage = async (messageText?: string) => {
+    const text = messageText || input.trim();
+    if (!text || isLoading) return;
+
+    const userMessage: Message = { role: "user", content: text };
+    setMessages((prev) => [...prev, userMessage]);
+    setInput("");
+    setIsLoading(true);
+
+    let assistantContent = "";
+
+    try {
+      const response = await streamChat([...messages, userMessage]);
+      const reader = response.body!.getReader();
+      const decoder = new TextDecoder();
+      let textBuffer = "";
+
+      // Add empty assistant message to start streaming into
+      setMessages((prev) => [...prev, { role: "assistant", content: "" }]);
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        textBuffer += decoder.decode(value, { stream: true });
+
+        // Process line by line
+        let newlineIndex: number;
+        while ((newlineIndex = textBuffer.indexOf("\n")) !== -1) {
+          let line = textBuffer.slice(0, newlineIndex);
+          textBuffer = textBuffer.slice(newlineIndex + 1);
+
+          if (line.endsWith("\r")) line = line.slice(0, -1);
+          if (line.startsWith(":") || line.trim() === "") continue;
+          if (!line.startsWith("data: ")) continue;
+
+          const jsonStr = line.slice(6).trim();
+          if (jsonStr === "[DONE]") break;
+
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            if (content) {
+              assistantContent += content;
+              setMessages((prev) => {
+                const newMessages = [...prev];
+                newMessages[newMessages.length - 1] = {
+                  role: "assistant",
+                  content: assistantContent,
+                };
+                return newMessages;
+              });
+            }
+          } catch {
+            // Incomplete JSON, put back and wait
+            textBuffer = line + "\n" + textBuffer;
+            break;
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Chat error:", error);
+      // Remove the empty assistant message if error
+      setMessages((prev) => {
+        if (prev[prev.length - 1]?.role === "assistant" && prev[prev.length - 1]?.content === "") {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to get response",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+      inputRef.current?.focus();
+    }
+  };
+
+  const clearChat = () => {
+    setMessages([
+      {
+        role: "assistant",
+        content: "Hello! I'm your Medical AI Assistant. I can help you with health-related questions, explain medical terms, and provide general wellness guidance. How can I assist you today?",
+      },
+    ]);
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
+  };
+
+  return (
+    <Layout showFooter={false}>
+      <div className="container py-4 md:py-8 flex flex-col h-[calc(100vh-4rem)]">
+        <div className="max-w-3xl mx-auto w-full flex flex-col flex-1">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl gradient-primary shadow-md">
+                <Bot className="h-5 w-5 text-primary-foreground" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold">Medical AI Chatbot</h1>
+                <p className="text-sm text-muted-foreground">Ask health questions</p>
+              </div>
+            </div>
+            <Button variant="outline" size="sm" onClick={clearChat}>
+              <Trash2 className="h-4 w-4 mr-2" />
+              Clear
+            </Button>
+          </div>
+
+          {/* Chat Area */}
+          <Card className="flex-1 flex flex-col border-border/50 shadow-lg overflow-hidden">
+            <ScrollArea ref={scrollAreaRef} className="flex-1 p-4 chat-scrollbar">
+              <div className="space-y-4">
+                {messages.map((message, index) => (
+                  <div
+                    key={index}
+                    className={`flex gap-3 ${
+                      message.role === "user" ? "flex-row-reverse" : ""
+                    } animate-fade-in`}
+                  >
+                    <div
+                      className={`flex h-8 w-8 items-center justify-center rounded-full flex-shrink-0 ${
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {message.role === "user" ? (
+                        <User className="h-4 w-4" />
+                      ) : (
+                        <Bot className="h-4 w-4" />
+                      )}
+                    </div>
+                    <div
+                      className={`max-w-[80%] rounded-2xl px-4 py-2.5 ${
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-tr-sm"
+                          : "bg-muted rounded-tl-sm"
+                      }`}
+                    >
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {message.content}
+                        {isLoading && index === messages.length - 1 && message.role === "assistant" && message.content === "" && (
+                          <span className="inline-flex items-center gap-1">
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                            Thinking...
+                          </span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </ScrollArea>
+
+            {/* Quick Questions */}
+            {messages.length <= 2 && (
+              <div className="p-4 border-t border-border">
+                <p className="text-xs text-muted-foreground mb-2">Quick questions:</p>
+                <div className="flex flex-wrap gap-2">
+                  {quickQuestions.map((question) => (
+                    <Button
+                      key={question}
+                      variant="outline"
+                      size="sm"
+                      onClick={() => sendMessage(question)}
+                      disabled={isLoading}
+                      className="text-xs h-auto py-1.5"
+                    >
+                      {question}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Input Area */}
+            <div className="p-4 border-t border-border bg-muted/30">
+              <div className="flex gap-2">
+                <Input
+                  ref={inputRef}
+                  placeholder="Ask a health question..."
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyPress={handleKeyPress}
+                  disabled={isLoading}
+                  className="flex-1"
+                />
+                <Button
+                  onClick={() => sendMessage()}
+                  disabled={isLoading || !input.trim()}
+                  className="gradient-primary text-primary-foreground"
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          {/* Disclaimer */}
+          <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
+            <AlertCircle className="h-3 w-3 flex-shrink-0" />
+            <p>
+              This chatbot provides general information only. Always consult a healthcare professional for medical advice.
+            </p>
+          </div>
+        </div>
+      </div>
+    </Layout>
+  );
+};
+
+export default Chatbot;
