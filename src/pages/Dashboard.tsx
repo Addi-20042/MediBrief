@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +18,9 @@ import {
   CheckCircle,
   Loader2,
   ArrowRight,
+  Pill,
+  Footprints,
+  Droplets,
 } from "lucide-react";
 import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
 
@@ -39,9 +42,17 @@ interface HealthStats {
   healthScore: number;
 }
 
+interface TodayMetrics {
+  steps: number | null;
+  water_intake: number | null;
+  medications_logged: number;
+  medications_total: number;
+}
+
 const Dashboard = () => {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [stats, setStats] = useState<HealthStats | null>(null);
+  const [todayMetrics, setTodayMetrics] = useState<TodayMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -103,6 +114,38 @@ const Dashboard = () => {
         thisMonthAnalyses: thisMonthPredictions.length,
         recentConditions: recentConditions.slice(0, 5),
         healthScore: Math.round(healthScore),
+      });
+
+      // Fetch today's health metrics
+      const today = format(new Date(), "yyyy-MM-dd");
+      const { data: metricsData } = await supabase
+        .from("health_metrics")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("metric_date", today)
+        .maybeSingle();
+
+      // Fetch medication reminders and today's logs
+      const { data: reminders } = await supabase
+        .from("medication_reminders")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("is_active", true);
+
+      const { data: logs } = await supabase
+        .from("medication_logs")
+        .select("reminder_id")
+        .eq("user_id", user.id)
+        .gte("taken_at", `${today}T00:00:00`)
+        .lte("taken_at", `${today}T23:59:59`);
+
+      const uniqueLoggedMeds = new Set(logs?.map(l => l.reminder_id) || []);
+
+      setTodayMetrics({
+        steps: metricsData?.steps || null,
+        water_intake: metricsData?.water_intake || null,
+        medications_logged: uniqueLoggedMeds.size,
+        medications_total: reminders?.length || 0,
       });
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -212,6 +255,51 @@ const Dashboard = () => {
               </CardContent>
             </Card>
           </div>
+
+          {/* Today's Health Metrics */}
+          {todayMetrics && (todayMetrics.steps || todayMetrics.water_intake || todayMetrics.medications_total > 0) && (
+            <Card className="border-border/50 metric-card mb-6">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Heart className="h-5 w-5 text-primary" />
+                  Today's Health Snapshot
+                </CardTitle>
+                <CardDescription>
+                  Quick overview of your daily health metrics
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  {todayMetrics.steps !== null && (
+                    <div className="text-center p-4 rounded-lg bg-muted/50">
+                      <Footprints className="h-6 w-6 mx-auto text-primary mb-2" />
+                      <p className="text-2xl font-bold">{todayMetrics.steps.toLocaleString()}</p>
+                      <p className="text-xs text-muted-foreground">Steps</p>
+                    </div>
+                  )}
+                  {todayMetrics.water_intake !== null && (
+                    <div className="text-center p-4 rounded-lg bg-muted/50">
+                      <Droplets className="h-6 w-6 mx-auto text-info mb-2" />
+                      <p className="text-2xl font-bold">{todayMetrics.water_intake}</p>
+                      <p className="text-xs text-muted-foreground">Glasses of Water</p>
+                    </div>
+                  )}
+                  {todayMetrics.medications_total > 0 && (
+                    <div className="text-center p-4 rounded-lg bg-muted/50">
+                      <Pill className="h-6 w-6 mx-auto text-success mb-2" />
+                      <p className="text-2xl font-bold">{todayMetrics.medications_logged}/{todayMetrics.medications_total}</p>
+                      <p className="text-xs text-muted-foreground">Medications Taken</p>
+                    </div>
+                  )}
+                  <Link to="/health-tracking" className="text-center p-4 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer">
+                    <ArrowRight className="h-6 w-6 mx-auto text-primary mb-2" />
+                    <p className="text-sm font-medium text-primary">View All</p>
+                    <p className="text-xs text-muted-foreground">Health Tracking</p>
+                  </Link>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Main Content Grid */}
           <div className="grid gap-6 lg:grid-cols-2">

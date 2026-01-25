@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
 import { downloadReport, getProbabilityPercent } from "@/lib/downloadReport";
 import { format } from "date-fns";
+import ShareReportDialog from "@/components/ShareReportDialog";
 import {
   Stethoscope,
   Loader2,
@@ -22,6 +23,7 @@ import {
   Download,
   Save,
   Sparkles,
+  Mail,
 } from "lucide-react";
 
 interface Condition {
@@ -231,13 +233,28 @@ const Symptoms = () => {
             <div ref={resultRef} className="space-y-6 animate-slide-up print:animate-none">
               {/* Action Buttons */}
               <div className="flex justify-end gap-2 no-print">
+                <ShareReportDialog
+                  reportData={{
+                    type: "symptom",
+                    input: symptoms,
+                    predictions: result.conditions,
+                    summary: result.generalAdvice,
+                    date: format(new Date(), "MMMM d, yyyy"),
+                  }}
+                  trigger={
+                    <Button variant="outline" size="sm">
+                      <Mail className="mr-2 h-4 w-4" />
+                      Email Report
+                    </Button>
+                  }
+                />
                 <Button variant="outline" size="sm" onClick={handleDownload}>
                   <Download className="mr-2 h-4 w-4" />
                   Download
                 </Button>
                 <Button variant="outline" size="sm" onClick={handlePrint}>
                   <Printer className="mr-2 h-4 w-4" />
-                  Print Results
+                  Print
                 </Button>
               </div>
 

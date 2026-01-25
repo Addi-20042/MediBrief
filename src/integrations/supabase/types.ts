@@ -38,6 +38,143 @@ export type Database = {
         }
         Relationships: []
       }
+      health_metrics: {
+        Row: {
+          blood_pressure_diastolic: number | null
+          blood_pressure_systolic: number | null
+          blood_sugar: number | null
+          created_at: string
+          heart_rate: number | null
+          id: string
+          metric_date: string
+          mood: string | null
+          notes: string | null
+          sleep_hours: number | null
+          steps: number | null
+          updated_at: string
+          user_id: string
+          water_intake: number | null
+          weight: number | null
+        }
+        Insert: {
+          blood_pressure_diastolic?: number | null
+          blood_pressure_systolic?: number | null
+          blood_sugar?: number | null
+          created_at?: string
+          heart_rate?: number | null
+          id?: string
+          metric_date?: string
+          mood?: string | null
+          notes?: string | null
+          sleep_hours?: number | null
+          steps?: number | null
+          updated_at?: string
+          user_id: string
+          water_intake?: number | null
+          weight?: number | null
+        }
+        Update: {
+          blood_pressure_diastolic?: number | null
+          blood_pressure_systolic?: number | null
+          blood_sugar?: number | null
+          created_at?: string
+          heart_rate?: number | null
+          id?: string
+          metric_date?: string
+          mood?: string | null
+          notes?: string | null
+          sleep_hours?: number | null
+          steps?: number | null
+          updated_at?: string
+          user_id?: string
+          water_intake?: number | null
+          weight?: number | null
+        }
+        Relationships: []
+      }
+      medication_logs: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          reminder_id: string | null
+          skipped: boolean
+          taken_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reminder_id?: string | null
+          skipped?: boolean
+          taken_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          reminder_id?: string | null
+          skipped?: boolean
+          taken_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_logs_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "medication_reminders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_reminders: {
+        Row: {
+          created_at: string
+          dosage: string
+          end_date: string | null
+          frequency: string
+          id: string
+          is_active: boolean
+          medication_name: string
+          notes: string | null
+          reminder_times: string[]
+          start_date: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          dosage: string
+          end_date?: string | null
+          frequency: string
+          id?: string
+          is_active?: boolean
+          medication_name: string
+          notes?: string | null
+          reminder_times?: string[]
+          start_date?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          dosage?: string
+          end_date?: string | null
+          frequency?: string
+          id?: string
+          is_active?: boolean
+          medication_name?: string
+          notes?: string | null
+          reminder_times?: string[]
+          start_date?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       predictions: {
         Row: {
           created_at: string

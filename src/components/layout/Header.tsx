@@ -22,6 +22,8 @@ import {
   Stethoscope,
   LayoutDashboard,
   Settings,
+  Heart,
+  Pill,
 } from "lucide-react";
 
 const Header = () => {
@@ -88,6 +90,12 @@ const Header = () => {
                   <Link to="/dashboard" className="flex items-center gap-2 cursor-pointer">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/health-tracking" className="flex items-center gap-2 cursor-pointer">
+                    <Heart className="h-4 w-4" />
+                    Health Tracking
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
