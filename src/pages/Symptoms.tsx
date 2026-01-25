@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
+import { downloadReport, getProbabilityPercent } from "@/lib/downloadReport";
+import { format } from "date-fns";
 import {
   Stethoscope,
   Loader2,
@@ -106,6 +109,18 @@ const Symptoms = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownload = () => {
+    if (!result) return;
+    downloadReport({
+      title: "Symptom Analysis Report",
+      date: format(new Date(), "MMMM d, yyyy 'at' h:mm a"),
+      inputData: symptoms,
+      conditions: result.conditions,
+      generalAdvice: result.generalAdvice,
+      disclaimer: result.disclaimer,
+    });
   };
 
   const getUrgencyColor = (urgency: string) => {
@@ -216,6 +231,10 @@ const Symptoms = () => {
             <div ref={resultRef} className="space-y-6 animate-slide-up print:animate-none">
               {/* Action Buttons */}
               <div className="flex justify-end gap-2 no-print">
+                <Button variant="outline" size="sm" onClick={handleDownload}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
                 <Button variant="outline" size="sm" onClick={handlePrint}>
                   <Printer className="mr-2 h-4 w-4" />
                   Print Results
@@ -248,13 +267,25 @@ const Symptoms = () => {
                         </div>
                         <div className="flex gap-2">
                           <Badge className={getProbabilityColor(condition.probability)}>
-                            {condition.probability} probability
+                            {getProbabilityPercent(condition.probability)}% match
                           </Badge>
                           <Badge className={getUrgencyColor(condition.urgency)}>
                             <Clock className="mr-1 h-3 w-3" />
                             {condition.urgency}
                           </Badge>
                         </div>
+                      </div>
+                      
+                      {/* Probability Bar */}
+                      <div className="mb-3">
+                        <div className="flex justify-between text-xs mb-1">
+                          <span className="text-muted-foreground">Match Probability</span>
+                          <span className="font-medium">{getProbabilityPercent(condition.probability)}%</span>
+                        </div>
+                        <Progress 
+                          value={getProbabilityPercent(condition.probability)} 
+                          className="h-2"
+                        />
                       </div>
                       
                       <p className="text-muted-foreground mb-3">{condition.description}</p>
