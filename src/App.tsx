@@ -12,6 +12,8 @@ import UploadReport from "./pages/UploadReport";
 import Chatbot from "./pages/Chatbot";
 import Learn from "./pages/Learn";
 import History from "./pages/History";
+import Dashboard from "./pages/Dashboard";
+import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -32,6 +34,8 @@ const App = () => (
             <Route path="/chatbot" element={<Chatbot />} />
             <Route path="/learn" element={<Learn />} />
             <Route path="/history" element={<History />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

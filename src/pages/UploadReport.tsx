@@ -4,10 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
+import { downloadReport, getProbabilityPercent } from "@/lib/downloadReport";
+import { format } from "date-fns";
 import {
   FileText,
   Upload,
@@ -15,6 +18,7 @@ import {
   AlertCircle,
   CheckCircle,
   Printer,
+  Download,
   Save,
   Sparkles,
   X,
@@ -133,6 +137,24 @@ const UploadReport = () => {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownload = () => {
+    if (!result) return;
+    downloadReport({
+      title: "Medical Report Analysis",
+      date: format(new Date(), "MMMM d, yyyy 'at' h:mm a"),
+      inputData: reportText.substring(0, 300) + (reportText.length > 300 ? "..." : ""),
+      conditions: result.possibleConditions.map((c) => ({
+        name: c.name,
+        probability: c.likelihood,
+        relatedFindings: c.relatedFindings,
+        description: c.description,
+      })),
+      summary: result.summary,
+      recommendations: result.recommendations,
+      disclaimer: result.disclaimer,
+    });
   };
 
   const clearFile = () => {
@@ -287,6 +309,10 @@ COMPLETE BLOOD COUNT (CBC)
             <div className="space-y-6 animate-slide-up print:animate-none">
               {/* Action Buttons */}
               <div className="flex justify-end gap-2 no-print">
+                <Button variant="outline" size="sm" onClick={handleDownload}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </Button>
                 <Button variant="outline" size="sm" onClick={handlePrint}>
                   <Printer className="mr-2 h-4 w-4" />
                   Print Results
@@ -361,9 +387,22 @@ COMPLETE BLOOD COUNT (CBC)
                         <div className="flex items-start justify-between gap-2 mb-2">
                           <h4 className="font-semibold">{condition.name}</h4>
                           <Badge className={getLikelihoodColor(condition.likelihood)}>
-                            {condition.likelihood} likelihood
+                            {getProbabilityPercent(condition.likelihood)}% match
                           </Badge>
                         </div>
+                        
+                        {/* Probability Bar */}
+                        <div className="mb-3">
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="text-muted-foreground">Match Probability</span>
+                            <span className="font-medium">{getProbabilityPercent(condition.likelihood)}%</span>
+                          </div>
+                          <Progress 
+                            value={getProbabilityPercent(condition.likelihood)} 
+                            className="h-2"
+                          />
+                        </div>
+                        
                         <p className="text-sm text-muted-foreground mb-2">
                           {condition.description}
                         </p>

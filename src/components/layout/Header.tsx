@@ -20,6 +20,8 @@ import {
   MessageCircle,
   BookOpen,
   Stethoscope,
+  LayoutDashboard,
+  Settings,
 } from "lucide-react";
 
 const Header = () => {
@@ -83,9 +85,21 @@ const Header = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
+                  <Link to="/dashboard" className="flex items-center gap-2 cursor-pointer">
+                    <LayoutDashboard className="h-4 w-4" />
+                    Dashboard
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link to="/history" className="flex items-center gap-2 cursor-pointer">
                     <History className="h-4 w-4" />
                     My History
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
+                  <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
+                    <Settings className="h-4 w-4" />
+                    Settings
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
