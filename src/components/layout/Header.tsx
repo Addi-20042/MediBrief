@@ -24,6 +24,7 @@ import {
   Settings,
   Heart,
   Pill,
+  Siren,
 } from "lucide-react";
 
 const Header = () => {
@@ -42,6 +43,7 @@ const Header = () => {
     { href: "/upload", label: "Upload Report", icon: FileText },
     { href: "/chatbot", label: "AI Chatbot", icon: MessageCircle },
     { href: "/learn", label: "Learn", icon: BookOpen },
+    { href: "/emergency", label: "Emergency", icon: Siren },
   ];
 
   const isActive = (path: string) => location.pathname === path;

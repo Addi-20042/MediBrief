@@ -576,8 +576,42 @@ export const generateReportText = (data: ReportData): string => {
   return text;
 };
 
-// Download as HTML (professional report)
-export const downloadReport = (data: ReportData) => {
+// Download as PDF (primary format)
+export const downloadReportPDF = async (data: ReportData) => {
+  const html = generateReportHTML(data);
+  
+  // Create a temporary container
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  container.style.position = 'absolute';
+  container.style.left = '-9999px';
+  container.style.top = '0';
+  document.body.appendChild(container);
+  
+  try {
+    // Dynamically import html2pdf
+    const html2pdf = (await import('html2pdf.js')).default;
+    
+    const opt = {
+      margin: 0.5,
+      filename: `medical-ai-report-${new Date().toISOString().split("T")[0]}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+    };
+    
+    await html2pdf().set(opt).from(container.querySelector('body') || container).save();
+  } catch (error) {
+    console.error('PDF generation failed, falling back to HTML:', error);
+    // Fallback to HTML download
+    downloadReportHTML(data);
+  } finally {
+    document.body.removeChild(container);
+  }
+};
+
+// Download as HTML
+export const downloadReportHTML = (data: ReportData) => {
   const html = generateReportHTML(data);
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -588,6 +622,11 @@ export const downloadReport = (data: ReportData) => {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
+};
+
+// Legacy function for backward compatibility
+export const downloadReport = (data: ReportData) => {
+  downloadReportPDF(data);
 };
 
 // Download as plain text
@@ -614,5 +653,25 @@ export const printReport = (data: ReportData) => {
     printWindow.onload = () => {
       printWindow.print();
     };
+  }
+};
+
+// Export format type
+export type ExportFormat = 'pdf' | 'html' | 'txt';
+
+// Unified export function
+export const exportReport = async (data: ReportData, format: ExportFormat = 'pdf') => {
+  switch (format) {
+    case 'pdf':
+      await downloadReportPDF(data);
+      break;
+    case 'html':
+      downloadReportHTML(data);
+      break;
+    case 'txt':
+      downloadReportText(data);
+      break;
+    default:
+      await downloadReportPDF(data);
   }
 };
