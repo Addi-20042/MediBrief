@@ -1,3 +1,5 @@
+import { extendedDiseases, extendedDiseaseCategories } from "./diseasesData";
+
 export interface Disease {
   id: string;
   name: string;
@@ -11,7 +13,8 @@ export interface Disease {
   whenToSeeDoctor: string;
 }
 
-export const diseases: Disease[] = [
+// Original diseases - kept for reference
+const originalDiseases: Disease[] = [
   {
     id: "diabetes-type-2",
     name: "Type 2 Diabetes",
@@ -326,18 +329,8 @@ export const diseases: Disease[] = [
   }
 ];
 
-export const diseaseCategories = [
-  "All",
-  "Cardiovascular",
-  "Respiratory",
-  "Neurological",
-  "Mental Health",
-  "Autoimmune",
-  "Metabolic",
-  "Gastrointestinal",
-  "Infectious",
-  "Endocrine",
-  "Musculoskeletal",
-  "Renal",
-  "Blood Disorders"
-];
+// Combine original and extended diseases
+export const diseases: Disease[] = [...originalDiseases, ...extendedDiseases];
+
+// Use extended categories
+export const diseaseCategories = extendedDiseaseCategories;
