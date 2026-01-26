@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Loader2, Mail, Lock, User, Github, Chrome } from "lucide-react";
+import { Activity, Loader2, Mail, Lock, User, Chrome } from "lucide-react";
 import { z } from "zod";
 
 const signupSchema = z.object({
@@ -60,8 +60,8 @@ const Signup = () => {
     }
   };
 
-  const handleProviderSignIn = async (provider: "google" | "github") => {
-    const { error } = await signInWithProvider(provider);
+  const handleGoogleSignIn = async () => {
+    const { error } = await signInWithProvider("google");
     if (error) {
       toast({
         title: "Signup Failed",
@@ -91,24 +91,14 @@ const Signup = () => {
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Social Signup */}
-            <div className="grid grid-cols-2 gap-3">
-              <Button
-                variant="outline"
-                onClick={() => handleProviderSignIn("google")}
-                className="w-full"
-              >
-                <Chrome className="mr-2 h-4 w-4" />
-                Google
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleProviderSignIn("github")}
-                className="w-full"
-              >
-                <Github className="mr-2 h-4 w-4" />
-                GitHub
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              onClick={handleGoogleSignIn}
+              className="w-full"
+            >
+              <Chrome className="mr-2 h-4 w-4" />
+              Continue with Google
+            </Button>
 
             <div className="relative">
               <div className="absolute inset-0 flex items-center">
