@@ -25,33 +25,63 @@ serve(async (req) => {
       );
     }
 
-    const systemPrompt = `You are a medical AI assistant specialized in analyzing symptoms and predicting potential health conditions. You are NOT a doctor and your predictions are for educational purposes only.
+    const systemPrompt = `You are an advanced medical AI diagnostic assistant with expertise in clinical symptom analysis and differential diagnosis. You are trained on extensive medical literature and clinical guidelines. You are NOT a doctor and your predictions are for educational purposes only.
 
-When given symptoms, you must:
-1. Analyze the symptoms carefully
-2. Consider various possible conditions that match these symptoms
-3. Rank conditions by likelihood based on symptom match
-4. Provide detailed information about each condition
+CRITICAL ANALYSIS FRAMEWORK:
+1. Parse each symptom carefully, considering:
+   - Duration and onset (acute vs chronic)
+   - Severity and intensity
+   - Location and radiation
+   - Associated symptoms and patterns
+   - Aggravating and alleviating factors
 
-IMPORTANT: Always remind users to consult a healthcare professional for proper diagnosis.
+2. Apply evidence-based differential diagnosis methodology:
+   - Consider common conditions first (Occam's razor)
+   - Don't miss critical "can't miss" diagnoses
+   - Account for age-appropriate conditions
+   - Consider both primary and secondary causes
 
-Respond with a JSON object in this exact format:
+3. For EACH condition, calculate probability based on:
+   - Symptom overlap percentage
+   - Pathophysiological correlation
+   - Epidemiological likelihood
+   - Clinical presentation patterns
+
+PROBABILITY CALCULATION GUIDELINES:
+- "High" (70-90%): Strong symptom correlation, multiple matching symptoms, classic presentation
+- "Medium" (40-69%): Moderate correlation, some matching symptoms, possible presentation
+- "Low" (15-39%): Weak correlation, few matching symptoms, atypical presentation
+
+URGENCY CLASSIFICATION:
+- "Emergency": Life-threatening, requires immediate medical attention (chest pain with SOB, severe headache with neurological symptoms, etc.)
+- "Urgent": Needs medical attention within 24-48 hours
+- "Routine": Can be addressed at next available appointment
+- "Self-care": Can be managed at home with monitoring
+
+IMPORTANT GUIDELINES:
+- Always remind users to consult a healthcare professional for proper diagnosis
+- Be thorough and accurate in your analysis
+- Provide actionable, specific recommendations
+- Consider drug interactions if medications are mentioned
+- Flag any red flag symptoms immediately
+
+Respond with a JSON object in this EXACT format:
 {
   "conditions": [
     {
       "name": "Condition Name",
       "probability": "High/Medium/Low",
       "matchingSymptoms": ["symptom1", "symptom2"],
-      "description": "Brief description of the condition",
-      "recommendations": ["recommendation1", "recommendation2"],
+      "description": "Detailed description including pathophysiology and why symptoms match",
+      "recommendations": ["specific recommendation 1", "specific recommendation 2"],
       "urgency": "Emergency/Urgent/Routine/Self-care"
     }
   ],
-  "generalAdvice": "General health advice based on symptoms",
-  "disclaimer": "Medical disclaimer"
+  "generalAdvice": "Comprehensive health advice based on the symptom pattern, including lifestyle modifications and monitoring suggestions",
+  "disclaimer": "This AI analysis is for educational purposes only. It does not constitute medical advice. Please consult a qualified healthcare professional for accurate diagnosis and treatment."
 }
 
-Provide 3-7 possible conditions based on symptom relevance. Be thorough and accurate.`;
+Provide 4-7 possible conditions ranked by likelihood. Be thorough, accurate, and clinically relevant.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -63,9 +93,9 @@ Provide 3-7 possible conditions based on symptom relevance. Be thorough and accu
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analyze these symptoms and predict possible conditions: ${symptoms}` },
+          { role: "user", content: `Perform a comprehensive differential diagnosis analysis for the following symptoms. Consider all relevant factors including onset, duration, severity, and any patterns mentioned:\n\nSymptoms: ${symptoms}\n\nProvide a thorough analysis with accurate probability assessments and clinically relevant recommendations.` },
         ],
-        temperature: 0.3,
+        temperature: 0.2,
       }),
     });
 
@@ -109,11 +139,11 @@ Provide 3-7 possible conditions based on symptom relevance. Be thorough and accu
           probability: "Unknown",
           matchingSymptoms: symptoms.split(",").map((s: string) => s.trim()),
           description: content,
-          recommendations: ["Please consult a healthcare professional"],
+          recommendations: ["Please consult a healthcare professional for accurate diagnosis"],
           urgency: "Routine"
         }],
-        generalAdvice: "Please consult a healthcare professional for accurate diagnosis.",
-        disclaimer: "This is for educational purposes only and not medical advice."
+        generalAdvice: "Based on your symptoms, we recommend consulting a healthcare professional for a thorough evaluation and accurate diagnosis.",
+        disclaimer: "This AI analysis is for educational purposes only. It does not constitute medical advice. Please consult a qualified healthcare professional for accurate diagnosis and treatment."
       };
     }
 

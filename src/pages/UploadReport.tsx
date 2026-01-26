@@ -9,7 +9,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
-import { downloadReport, getProbabilityPercent } from "@/lib/downloadReport";
+import { downloadReport, printReport, getProbabilityPercent } from "@/lib/downloadReport";
 import { format } from "date-fns";
 import ShareReportDialog from "@/components/ShareReportDialog";
 import {
@@ -138,7 +138,21 @@ const UploadReport = () => {
   };
 
   const handlePrint = () => {
-    window.print();
+    if (!result) return;
+    printReport({
+      title: "Medical Report Analysis",
+      date: format(new Date(), "MMMM d, yyyy 'at' h:mm a"),
+      inputData: reportText.substring(0, 300) + (reportText.length > 300 ? "..." : ""),
+      conditions: result.possibleConditions.map((c) => ({
+        name: c.name,
+        probability: c.likelihood,
+        relatedFindings: c.relatedFindings,
+        description: c.description,
+      })),
+      summary: result.summary,
+      recommendations: result.recommendations,
+      disclaimer: result.disclaimer,
+    });
   };
 
   const handleDownload = () => {
