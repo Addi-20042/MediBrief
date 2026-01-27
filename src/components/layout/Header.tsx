@@ -25,6 +25,7 @@ import {
   Heart,
   Pill,
   Siren,
+  HeartPulse,
 } from "lucide-react";
 
 const Header = () => {
@@ -43,6 +44,7 @@ const Header = () => {
     { href: "/upload", label: "Upload Report", icon: FileText },
     { href: "/chatbot", label: "AI Chatbot", icon: MessageCircle },
     { href: "/learn", label: "Learn", icon: BookOpen },
+    { href: "/first-aid", label: "First Aid", icon: HeartPulse },
     { href: "/emergency", label: "Emergency", icon: Siren },
   ];
 

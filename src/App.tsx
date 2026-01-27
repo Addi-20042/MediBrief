@@ -7,6 +7,8 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import ResetPassword from "./pages/ResetPassword";
+import UpdatePassword from "./pages/UpdatePassword";
 import Symptoms from "./pages/Symptoms";
 import UploadReport from "./pages/UploadReport";
 import Chatbot from "./pages/Chatbot";
@@ -16,6 +18,7 @@ import Dashboard from "./pages/Dashboard";
 import Settings from "./pages/Settings";
 import HealthTracking from "./pages/HealthTracking";
 import Emergency from "./pages/Emergency";
+import FirstAid from "./pages/FirstAid";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -31,6 +34,8 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/reset-password" element={<ResetPassword />} />
+            <Route path="/update-password" element={<UpdatePassword />} />
             <Route path="/symptoms" element={<Symptoms />} />
             <Route path="/upload" element={<UploadReport />} />
             <Route path="/chatbot" element={<Chatbot />} />
@@ -40,6 +45,7 @@ const App = () => (
             <Route path="/settings" element={<Settings />} />
             <Route path="/health-tracking" element={<HealthTracking />} />
             <Route path="/emergency" element={<Emergency />} />
+            <Route path="/first-aid" element={<FirstAid />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
