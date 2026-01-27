@@ -156,6 +156,12 @@ const Login = () => {
                 )}
               </Button>
             </form>
+
+            <div className="text-center">
+              <Link to="/reset-password" className="text-sm text-muted-foreground hover:text-primary">
+                Forgot your password?
+              </Link>
+            </div>
           </CardContent>
           <CardFooter className="justify-center">
             <p className="text-sm text-muted-foreground">
