@@ -19,7 +19,7 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
-  const { signIn, signInWithProvider } = useAuth();
+  const { signIn, signInWithGoogle } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -59,7 +59,7 @@ const Login = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    const { error } = await signInWithProvider("google");
+    const { error } = await signInWithGoogle();
     if (error) {
       toast({
         title: "Login Failed",
