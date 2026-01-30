@@ -1,9 +1,44 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Input validation constants
+const MIN_REPORT_LENGTH = 20;
+const MAX_REPORT_LENGTH = 50000;
+
+// Sanitize text to prevent prompt injection
+function sanitizeText(text: string): string {
+  return text
+    .replace(/[<>]/g, '') // Remove potential HTML tags
+    .trim();
+}
+
+// Validate report text input
+function validateReportText(reportText: unknown): { valid: boolean; error?: string; sanitized?: string } {
+  if (typeof reportText !== 'string') {
+    return { valid: false, error: "Report text must be a string" };
+  }
+  
+  const trimmed = reportText.trim();
+  
+  if (trimmed.length === 0) {
+    return { valid: false, error: "Please provide report text to analyze" };
+  }
+  
+  if (trimmed.length < MIN_REPORT_LENGTH) {
+    return { valid: false, error: `Please provide at least ${MIN_REPORT_LENGTH} characters of report text` };
+  }
+  
+  if (trimmed.length > MAX_REPORT_LENGTH) {
+    return { valid: false, error: `Report text cannot exceed ${MAX_REPORT_LENGTH} characters` };
+  }
+  
+  return { valid: true, sanitized: sanitizeText(trimmed) };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,18 +46,56 @@ serve(async (req) => {
   }
 
   try {
-    const { reportText } = await req.json();
+    // Authentication check
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Parse and validate input
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { reportText } = body as { reportText?: unknown };
+    const validation = validateReportText(reportText);
+    
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    if (!reportText || reportText.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Please provide report text to analyze" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     const systemPrompt = `You are an expert medical AI assistant specialized in analyzing medical reports, lab results, and diagnostic tests. You have extensive training in clinical pathology, radiology, and laboratory medicine. You are NOT a doctor and your analysis is for educational purposes only.
@@ -108,7 +181,7 @@ Be thorough, accurate, and provide clinically relevant analysis.`;
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Analyze this medical report comprehensively. Extract all relevant values, identify abnormalities, and provide a thorough clinical interpretation:\n\n${reportText}\n\nProvide a detailed analysis with accurate interpretations and actionable recommendations.` },
+          { role: "user", content: `Analyze this medical report comprehensively. Extract all relevant values, identify abnormalities, and provide a thorough clinical interpretation:\n\n${validation.sanitized}\n\nProvide a detailed analysis with accurate interpretations and actionable recommendations.` },
         ],
         temperature: 0.2,
       }),
@@ -163,7 +236,7 @@ Be thorough, accurate, and provide clinically relevant analysis.`;
   } catch (error) {
     console.error("Error analyzing report:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "An error occurred" }),
+      JSON.stringify({ error: "An error occurred while processing your request" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

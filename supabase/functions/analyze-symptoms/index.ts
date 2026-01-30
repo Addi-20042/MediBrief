@@ -1,9 +1,44 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Input validation constants
+const MIN_SYMPTOMS_LENGTH = 10;
+const MAX_SYMPTOMS_LENGTH = 3000;
+
+// Sanitize text to prevent prompt injection
+function sanitizeText(text: string): string {
+  return text
+    .replace(/[<>]/g, '') // Remove potential HTML tags
+    .trim();
+}
+
+// Validate symptoms input
+function validateSymptoms(symptoms: unknown): { valid: boolean; error?: string; sanitized?: string } {
+  if (typeof symptoms !== 'string') {
+    return { valid: false, error: "Symptoms must be a string" };
+  }
+  
+  const trimmed = symptoms.trim();
+  
+  if (trimmed.length === 0) {
+    return { valid: false, error: "Please provide symptoms to analyze" };
+  }
+  
+  if (trimmed.length < MIN_SYMPTOMS_LENGTH) {
+    return { valid: false, error: `Please provide at least ${MIN_SYMPTOMS_LENGTH} characters describing your symptoms` };
+  }
+  
+  if (trimmed.length > MAX_SYMPTOMS_LENGTH) {
+    return { valid: false, error: `Symptoms description cannot exceed ${MAX_SYMPTOMS_LENGTH} characters` };
+  }
+  
+  return { valid: true, sanitized: sanitizeText(trimmed) };
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -11,18 +46,56 @@ serve(async (req) => {
   }
 
   try {
-    const { symptoms } = await req.json();
+    // Authentication check
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Parse and validate input
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { symptoms } = body as { symptoms?: unknown };
+    const validation = validateSymptoms(symptoms);
+    
+    if (!validation.valid) {
+      return new Response(
+        JSON.stringify({ error: validation.error }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
       throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    if (!symptoms || symptoms.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ error: "Please provide symptoms to analyze" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
     }
 
     const systemPrompt = `You are an advanced medical AI diagnostic assistant with expertise in clinical symptom analysis and differential diagnosis. You are trained on extensive medical literature and clinical guidelines. You are NOT a doctor and your predictions are for educational purposes only.
@@ -93,7 +166,7 @@ Provide 4-7 possible conditions ranked by likelihood. Be thorough, accurate, and
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Perform a comprehensive differential diagnosis analysis for the following symptoms. Consider all relevant factors including onset, duration, severity, and any patterns mentioned:\n\nSymptoms: ${symptoms}\n\nProvide a thorough analysis with accurate probability assessments and clinically relevant recommendations.` },
+          { role: "user", content: `Perform a comprehensive differential diagnosis analysis for the following symptoms. Consider all relevant factors including onset, duration, severity, and any patterns mentioned:\n\nSymptoms: ${validation.sanitized}\n\nProvide a thorough analysis with accurate probability assessments and clinically relevant recommendations.` },
         ],
         temperature: 0.2,
       }),
@@ -137,7 +210,7 @@ Provide 4-7 possible conditions ranked by likelihood. Be thorough, accurate, and
         conditions: [{
           name: "Analysis Result",
           probability: "Unknown",
-          matchingSymptoms: symptoms.split(",").map((s: string) => s.trim()),
+          matchingSymptoms: validation.sanitized!.split(",").map((s: string) => s.trim()),
           description: content,
           recommendations: ["Please consult a healthcare professional for accurate diagnosis"],
           urgency: "Routine"
@@ -154,7 +227,7 @@ Provide 4-7 possible conditions ranked by likelihood. Be thorough, accurate, and
   } catch (error) {
     console.error("Error analyzing symptoms:", error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : "An error occurred" }),
+      JSON.stringify({ error: "An error occurred while processing your request" }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

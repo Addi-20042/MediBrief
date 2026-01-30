@@ -1,9 +1,113 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+
+// Input validation constants
+const MAX_EMAIL_LENGTH = 254;
+const MAX_NAME_LENGTH = 100;
+const MAX_NOTE_LENGTH = 2000;
+const MAX_INPUT_LENGTH = 5000;
+
+// Email validation regex
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// HTML escape function to prevent XSS
+function escapeHtml(text: string): string {
+  const htmlEscapes: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return text.replace(/[&<>"']/g, (char) => htmlEscapes[char] || char);
+}
+
+// Sanitize and validate email
+function validateEmail(email: unknown): { valid: boolean; error?: string; sanitized?: string } {
+  if (typeof email !== 'string') {
+    return { valid: false, error: "Email must be a string" };
+  }
+  
+  const trimmed = email.trim().toLowerCase();
+  
+  if (trimmed.length === 0) {
+    return { valid: false, error: "Email is required" };
+  }
+  
+  if (trimmed.length > MAX_EMAIL_LENGTH) {
+    return { valid: false, error: `Email cannot exceed ${MAX_EMAIL_LENGTH} characters` };
+  }
+  
+  if (!EMAIL_REGEX.test(trimmed)) {
+    return { valid: false, error: "Invalid email format" };
+  }
+  
+  return { valid: true, sanitized: trimmed };
+}
+
+// Validate optional string fields
+function validateOptionalString(value: unknown, fieldName: string, maxLength: number): { valid: boolean; error?: string; sanitized?: string } {
+  if (value === undefined || value === null) {
+    return { valid: true, sanitized: undefined };
+  }
+  
+  if (typeof value !== 'string') {
+    return { valid: false, error: `${fieldName} must be a string` };
+  }
+  
+  const trimmed = value.trim();
+  
+  if (trimmed.length > maxLength) {
+    return { valid: false, error: `${fieldName} cannot exceed ${maxLength} characters` };
+  }
+  
+  return { valid: true, sanitized: trimmed };
+}
+
+// Validate report object
+function validateReport(report: unknown): { valid: boolean; error?: string; sanitized?: any } {
+  if (!report || typeof report !== 'object') {
+    return { valid: false, error: "Report is required and must be an object" };
+  }
+  
+  const r = report as Record<string, unknown>;
+  
+  if (typeof r.type !== 'string' || !['symptom', 'report'].includes(r.type)) {
+    return { valid: false, error: "Report type must be 'symptom' or 'report'" };
+  }
+  
+  if (typeof r.input !== 'string') {
+    return { valid: false, error: "Report input must be a string" };
+  }
+  
+  if (r.input.length > MAX_INPUT_LENGTH) {
+    return { valid: false, error: `Report input cannot exceed ${MAX_INPUT_LENGTH} characters` };
+  }
+  
+  if (!Array.isArray(r.predictions)) {
+    return { valid: false, error: "Report predictions must be an array" };
+  }
+  
+  if (typeof r.date !== 'string') {
+    return { valid: false, error: "Report date must be a string" };
+  }
+  
+  return {
+    valid: true,
+    sanitized: {
+      type: r.type,
+      input: r.input.slice(0, MAX_INPUT_LENGTH),
+      predictions: r.predictions.slice(0, 20), // Limit predictions
+      summary: typeof r.summary === 'string' ? r.summary.slice(0, 2000) : undefined,
+      date: r.date,
+    }
+  };
+}
 
 interface ReportEmailRequest {
   to: string;
@@ -25,21 +129,87 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { to, doctorName, patientNote, report }: ReportEmailRequest = await req.json();
-
-    if (!to || !report) {
+    // Authentication check
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields: to, report" }),
+        JSON.stringify({ error: "Missing or invalid authorization header" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+
+    const token = authHeader.replace('Bearer ', '');
+    const { data: claimsData, error: claimsError } = await supabaseClient.auth.getClaims(token);
+    
+    if (claimsError || !claimsData?.claims) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized - invalid token" }),
+        { status: 401, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Parse and validate input
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return new Response(
+        JSON.stringify({ error: "Invalid JSON body" }),
         { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
       );
     }
 
-    // Format the predictions for the email
-    const predictionsHtml = report.predictions
+    const { to, doctorName, patientNote, report } = body as ReportEmailRequest;
+
+    // Validate email
+    const emailValidation = validateEmail(to);
+    if (!emailValidation.valid) {
+      return new Response(
+        JSON.stringify({ error: emailValidation.error }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Validate optional fields
+    const doctorNameValidation = validateOptionalString(doctorName, "Doctor name", MAX_NAME_LENGTH);
+    if (!doctorNameValidation.valid) {
+      return new Response(
+        JSON.stringify({ error: doctorNameValidation.error }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const patientNoteValidation = validateOptionalString(patientNote, "Patient note", MAX_NOTE_LENGTH);
+    if (!patientNoteValidation.valid) {
+      return new Response(
+        JSON.stringify({ error: patientNoteValidation.error }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    // Validate report
+    const reportValidation = validateReport(report);
+    if (!reportValidation.valid) {
+      return new Response(
+        JSON.stringify({ error: reportValidation.error }),
+        { status: 400, headers: { "Content-Type": "application/json", ...corsHeaders } }
+      );
+    }
+
+    const sanitizedReport = reportValidation.sanitized;
+
+    // Format the predictions for the email (with HTML escaping)
+    const predictionsHtml = sanitizedReport.predictions
       .map((pred: any, index: number) => {
-        const name = pred.name || pred;
+        const name = escapeHtml(String(pred.name || pred));
         const probability = pred.probability || pred.likelihood || "Unknown";
-        const description = pred.description || "";
+        const description = pred.description ? escapeHtml(String(pred.description)) : "";
         
         return `
           <tr>
@@ -61,7 +231,7 @@ const handler = async (req: Request): Promise<Response> => {
                   ? "#d97706"
                   : "#16a34a"
               }; padding: 4px 12px; border-radius: 9999px; font-size: 12px; font-weight: 600;">
-                ${typeof probability === "number" ? `${probability}%` : probability}
+                ${typeof probability === "number" ? `${probability}%` : escapeHtml(String(probability))}
               </span>
             </td>
           </tr>
@@ -85,22 +255,22 @@ const handler = async (req: Request): Promise<Response> => {
           </div>
           
           <div style="background: white; padding: 30px; border-radius: 0 0 12px 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1);">
-            ${doctorName ? `<p style="margin-bottom: 20px;">Dear <strong>${doctorName}</strong>,</p>` : ""}
+            ${doctorNameValidation.sanitized ? `<p style="margin-bottom: 20px;">Dear <strong>${escapeHtml(doctorNameValidation.sanitized)}</strong>,</p>` : ""}
             
             <p>A patient has shared their health analysis report with you from Medical AI.</p>
             
-            ${patientNote ? `
+            ${patientNoteValidation.sanitized ? `
               <div style="background: #f0fdfa; border-left: 4px solid #0d9488; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
                 <p style="margin: 0; font-weight: 600; color: #0d9488;">Patient's Note:</p>
-                <p style="margin: 10px 0 0 0; color: #374151;">${patientNote}</p>
+                <p style="margin: 10px 0 0 0; color: #374151;">${escapeHtml(patientNoteValidation.sanitized)}</p>
               </div>
             ` : ""}
             
             <div style="background: #f9fafb; padding: 20px; border-radius: 8px; margin: 20px 0;">
               <h2 style="margin: 0 0 15px 0; font-size: 18px; color: #374151;">Report Details</h2>
-              <p style="margin: 5px 0;"><strong>Analysis Type:</strong> ${report.type === "symptom" ? "Symptom-Based Analysis" : "Medical Report Analysis"}</p>
-              <p style="margin: 5px 0;"><strong>Date:</strong> ${report.date}</p>
-              ${report.type === "symptom" ? `<p style="margin: 5px 0;"><strong>Symptoms Reported:</strong> ${report.input}</p>` : ""}
+              <p style="margin: 5px 0;"><strong>Analysis Type:</strong> ${sanitizedReport.type === "symptom" ? "Symptom-Based Analysis" : "Medical Report Analysis"}</p>
+              <p style="margin: 5px 0;"><strong>Date:</strong> ${escapeHtml(sanitizedReport.date)}</p>
+              ${sanitizedReport.type === "symptom" ? `<p style="margin: 5px 0;"><strong>Symptoms Reported:</strong> ${escapeHtml(sanitizedReport.input)}</p>` : ""}
             </div>
             
             <h2 style="font-size: 18px; color: #374151; margin-top: 30px;">Predicted Conditions</h2>
@@ -116,10 +286,10 @@ const handler = async (req: Request): Promise<Response> => {
               </tbody>
             </table>
             
-            ${report.summary ? `
+            ${sanitizedReport.summary ? `
               <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; border-radius: 0 8px 8px 0;">
                 <p style="margin: 0; font-weight: 600; color: #92400e;">AI Summary:</p>
-                <p style="margin: 10px 0 0 0; color: #78350f;">${report.summary}</p>
+                <p style="margin: 10px 0 0 0; color: #78350f;">${escapeHtml(sanitizedReport.summary)}</p>
               </div>
             ` : ""}
             
@@ -143,7 +313,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // For now, we'll log the email content and return success
     // In production, you would integrate with Resend, SendGrid, etc.
-    console.log("Email would be sent to:", to);
+    console.log("Email would be sent to:", emailValidation.sanitized);
     console.log("Email HTML generated successfully");
 
     // Check if RESEND_API_KEY is available
@@ -159,8 +329,8 @@ const handler = async (req: Request): Promise<Response> => {
         },
         body: JSON.stringify({
           from: "Medical AI <noreply@resend.dev>",
-          to: [to],
-          subject: `Health Analysis Report - ${report.date}`,
+          to: [emailValidation.sanitized],
+          subject: `Health Analysis Report - ${escapeHtml(sanitizedReport.date)}`,
           html: emailHtml,
         }),
       });
@@ -188,7 +358,7 @@ const handler = async (req: Request): Promise<Response> => {
   } catch (error: any) {
     console.error("Error in send-report-email function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: "An error occurred while processing your request" }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
   }
