@@ -21,7 +21,7 @@ const Signup = () => {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<{ fullName?: string; email?: string; password?: string }>({});
-  const { signUp, signInWithProvider } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -61,7 +61,7 @@ const Signup = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    const { error } = await signInWithProvider("google");
+    const { error } = await signInWithGoogle();
     if (error) {
       toast({
         title: "Signup Failed",
