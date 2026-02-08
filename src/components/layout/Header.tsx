@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -107,8 +108,10 @@ const Header = () => {
           </DropdownMenu>
         </nav>
 
-        {/* Auth Buttons */}
-        <div className="flex items-center gap-2">
+        {/* Theme Toggle & Auth Buttons */}
+        <div className="flex items-center gap-1">
+          <ThemeToggle />
+          
           {user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
