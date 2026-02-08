@@ -651,16 +651,16 @@ export const downloadReportPDF = async (data: ReportData) => {
     `;
     
     const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5],
+      margin: [0.5, 0.5, 0.5, 0.5] as [number, number, number, number],
       filename: `medical-ai-report-${new Date().toISOString().split("T")[0]}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      image: { type: 'jpeg' as const, quality: 0.98 },
       html2canvas: { 
         scale: 2, 
         useCORS: true,
         logging: false,
         letterRendering: true
       },
-      jsPDF: { unit: 'in', format: 'a4', orientation: 'portrait' }
+      jsPDF: { unit: 'in' as const, format: 'a4', orientation: 'portrait' as const }
     };
     
     await html2pdf().set(opt).from(element).save();
