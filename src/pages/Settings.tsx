@@ -19,7 +19,12 @@ import {
   Save,
   LogOut,
   Trash2,
+  Sun,
+  Moon,
+  Monitor,
+  Palette,
 } from "lucide-react";
+import { useTheme } from "next-themes";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -49,6 +54,7 @@ const Settings = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { theme, setTheme } = useTheme();
 
   useEffect(() => {
     if (!user) {
@@ -258,6 +264,50 @@ const Settings = () => {
                     checked={pushNotifications}
                     onCheckedChange={setPushNotifications}
                   />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Appearance */}
+            <Card className="border-border/50">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="h-5 w-5" />
+                  Appearance
+                </CardTitle>
+                <CardDescription>
+                  Customize how the app looks and feels
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Theme</Label>
+                  <div className="grid grid-cols-3 gap-3">
+                    <Button
+                      variant={theme === "light" ? "default" : "outline"}
+                      className="w-full gap-2"
+                      onClick={() => setTheme("light")}
+                    >
+                      <Sun className="h-4 w-4" />
+                      Light
+                    </Button>
+                    <Button
+                      variant={theme === "dark" ? "default" : "outline"}
+                      className="w-full gap-2"
+                      onClick={() => setTheme("dark")}
+                    >
+                      <Moon className="h-4 w-4" />
+                      Dark
+                    </Button>
+                    <Button
+                      variant={theme === "system" ? "default" : "outline"}
+                      className="w-full gap-2"
+                      onClick={() => setTheme("system")}
+                    >
+                      <Monitor className="h-4 w-4" />
+                      System
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>

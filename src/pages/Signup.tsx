@@ -56,7 +56,7 @@ const Signup = () => {
         title: "Account Created!",
         description: "Welcome to Medical AI. You're now signed in.",
       });
-      navigate("/");
+      navigate("/dashboard");
     }
   };
 

@@ -1,7 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Layout from "@/components/layout/Layout";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Activity,
   FileText,
@@ -16,6 +17,13 @@ import {
 } from "lucide-react";
 
 const Index = () => {
+  const { user, loading } = useAuth();
+
+  // Redirect logged-in users to dashboard
+  if (!loading && user) {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   const features = [
     {
       icon: Stethoscope,
