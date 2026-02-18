@@ -7,6 +7,10 @@ import { Progress } from "@/components/ui/progress";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
+import PageTransition from "@/components/animations/PageTransition";
+import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerContainer";
+import DashboardSkeleton from "@/components/skeletons/DashboardSkeleton";
+import { motion } from "framer-motion";
 import {
   Activity,
   Heart,
@@ -16,13 +20,12 @@ import {
   FileText,
   AlertCircle,
   CheckCircle,
-  Loader2,
   ArrowRight,
   Pill,
   Footprints,
   Droplets,
 } from "lucide-react";
-import { format, subDays, startOfMonth, endOfMonth } from "date-fns";
+import { format, startOfMonth, endOfMonth } from "date-fns";
 
 interface Prediction {
   id: string;
@@ -80,7 +83,6 @@ const Dashboard = () => {
       const allPredictions = data || [];
       setPredictions(allPredictions);
 
-      // Calculate stats
       const now = new Date();
       const monthStart = startOfMonth(now);
       const monthEnd = endOfMonth(now);
@@ -102,7 +104,6 @@ const Dashboard = () => {
         }
       });
 
-      // Calculate health score (mock calculation based on activity)
       const activityScore = Math.min(100, allPredictions.length * 10);
       const recentActivityBonus = thisMonthPredictions.length > 0 ? 20 : 0;
       const healthScore = Math.min(100, 50 + activityScore / 5 + recentActivityBonus);
@@ -116,7 +117,6 @@ const Dashboard = () => {
         healthScore: Math.round(healthScore),
       });
 
-      // Fetch today's health metrics
       const today = format(new Date(), "yyyy-MM-dd");
       const { data: metricsData } = await supabase
         .from("health_metrics")
@@ -125,7 +125,6 @@ const Dashboard = () => {
         .eq("metric_date", today)
         .maybeSingle();
 
-      // Fetch medication reminders and today's logs
       const { data: reminders } = await supabase
         .from("medication_reminders")
         .select("id")
@@ -155,13 +154,7 @@ const Dashboard = () => {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <div className="container py-12 flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Layout>
-    );
+    return <DashboardSkeleton />;
   }
 
   const getHealthScoreColor = (score: number) => {
@@ -179,291 +172,287 @@ const Dashboard = () => {
 
   return (
     <Layout>
-      <div className="container py-8 md:py-12">
-        <div className="max-w-6xl mx-auto">
-          {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
-              <Heart className="h-8 w-8 text-primary" />
-              Health Dashboard
-            </h1>
-            <p className="text-muted-foreground">
-              Track your health analyses and monitor your wellness journey
-            </p>
-          </div>
+      <PageTransition>
+        <div className="container py-8 md:py-12">
+          <div className="max-w-6xl mx-auto">
+            {/* Header */}
+            <motion.div
+              initial={{ opacity: 0, x: -12 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.4 }}
+              className="mb-8"
+            >
+              <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
+                <Heart className="h-8 w-8 text-primary" />
+                Health Dashboard
+              </h1>
+              <p className="text-muted-foreground">
+                Track your health analyses and monitor your wellness journey
+              </p>
+            </motion.div>
 
-          {/* Stats Grid */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-            <Card className="border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Health Score</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-3xl font-bold ${getHealthScoreColor(stats?.healthScore || 0)}`}>
-                  {stats?.healthScore || 0}%
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {getHealthScoreLabel(stats?.healthScore || 0)}
-                </p>
-                <Progress value={stats?.healthScore || 0} className="mt-2 h-2" />
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Analyses</CardTitle>
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.totalAnalyses || 0}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  All-time health checks
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">This Month</CardTitle>
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-3xl font-bold">{stats?.thisMonthAnalyses || 0}</div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Analyses in {format(new Date(), "MMMM")}
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="border-border/50">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Analysis Types</CardTitle>
-                <Stethoscope className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-4 text-sm">
-                  <div>
-                    <span className="font-bold text-lg">{stats?.symptomAnalyses || 0}</span>
-                    <p className="text-xs text-muted-foreground">Symptoms</p>
-                  </div>
-                  <div>
-                    <span className="font-bold text-lg">{stats?.reportAnalyses || 0}</span>
-                    <p className="text-xs text-muted-foreground">Reports</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Today's Health Metrics */}
-          {todayMetrics && (todayMetrics.steps || todayMetrics.water_intake || todayMetrics.medications_total > 0) && (
-            <Card className="border-border/50 metric-card mb-6">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Heart className="h-5 w-5 text-primary" />
-                  Today's Health Snapshot
-                </CardTitle>
-                <CardDescription>
-                  Quick overview of your daily health metrics
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {todayMetrics.steps !== null && (
-                    <div className="text-center p-4 rounded-lg bg-muted/50">
-                      <Footprints className="h-6 w-6 mx-auto text-primary mb-2" />
-                      <p className="text-2xl font-bold">{todayMetrics.steps.toLocaleString()}</p>
-                      <p className="text-xs text-muted-foreground">Steps</p>
+            {/* Stats Grid */}
+            <StaggerContainer className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8" staggerDelay={0.08}>
+              <StaggerItem>
+                <Card className="border-border/50 hover:shadow-md transition-shadow duration-300">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Health Score</CardTitle>
+                    <Activity className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className={`text-3xl font-bold ${getHealthScoreColor(stats?.healthScore || 0)}`}>
+                      {stats?.healthScore || 0}%
                     </div>
-                  )}
-                  {todayMetrics.water_intake !== null && (
-                    <div className="text-center p-4 rounded-lg bg-muted/50">
-                      <Droplets className="h-6 w-6 mx-auto text-info mb-2" />
-                      <p className="text-2xl font-bold">{todayMetrics.water_intake}</p>
-                      <p className="text-xs text-muted-foreground">Glasses of Water</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {getHealthScoreLabel(stats?.healthScore || 0)}
+                    </p>
+                    <Progress value={stats?.healthScore || 0} className="mt-2 h-2" />
+                  </CardContent>
+                </Card>
+              </StaggerItem>
+
+              <StaggerItem>
+                <Card className="border-border/50 hover:shadow-md transition-shadow duration-300">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Total Analyses</CardTitle>
+                    <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">{stats?.totalAnalyses || 0}</div>
+                    <p className="text-xs text-muted-foreground mt-1">All-time health checks</p>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
+
+              <StaggerItem>
+                <Card className="border-border/50 hover:shadow-md transition-shadow duration-300">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">This Month</CardTitle>
+                    <Calendar className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-3xl font-bold">{stats?.thisMonthAnalyses || 0}</div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Analyses in {format(new Date(), "MMMM")}
+                    </p>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
+
+              <StaggerItem>
+                <Card className="border-border/50 hover:shadow-md transition-shadow duration-300">
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">Analysis Types</CardTitle>
+                    <Stethoscope className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex gap-4 text-sm">
+                      <div>
+                        <span className="font-bold text-lg">{stats?.symptomAnalyses || 0}</span>
+                        <p className="text-xs text-muted-foreground">Symptoms</p>
+                      </div>
+                      <div>
+                        <span className="font-bold text-lg">{stats?.reportAnalyses || 0}</span>
+                        <p className="text-xs text-muted-foreground">Reports</p>
+                      </div>
                     </div>
-                  )}
-                  {todayMetrics.medications_total > 0 && (
-                    <div className="text-center p-4 rounded-lg bg-muted/50">
-                      <Pill className="h-6 w-6 mx-auto text-success mb-2" />
-                      <p className="text-2xl font-bold">{todayMetrics.medications_logged}/{todayMetrics.medications_total}</p>
-                      <p className="text-xs text-muted-foreground">Medications Taken</p>
-                    </div>
-                  )}
-                  <Link to="/health-tracking" className="text-center p-4 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer">
-                    <ArrowRight className="h-6 w-6 mx-auto text-primary mb-2" />
-                    <p className="text-sm font-medium text-primary">View All</p>
-                    <p className="text-xs text-muted-foreground">Health Tracking</p>
-                  </Link>
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                  </CardContent>
+                </Card>
+              </StaggerItem>
+            </StaggerContainer>
 
-          {/* Main Content Grid */}
-          <div className="grid gap-6 lg:grid-cols-2">
-            {/* Recent Conditions */}
-            <Card className="border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertCircle className="h-5 w-5 text-warning" />
-                  Recent Conditions Analyzed
-                </CardTitle>
-                <CardDescription>
-                  Conditions from your recent health analyses
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {stats?.recentConditions && stats.recentConditions.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {stats.recentConditions.map((condition, index) => (
-                      <Badge key={index} variant="secondary" className="text-sm">
-                        {condition}
-                      </Badge>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-muted-foreground text-sm">
-                    No recent conditions analyzed. Start by checking your symptoms!
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Quick Actions */}
-            <Card className="border-border/50">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CheckCircle className="h-5 w-5 text-success" />
-                  Quick Actions
-                </CardTitle>
-                <CardDescription>
-                  Take control of your health today
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <Button
-                  variant="outline"
-                  className="w-full justify-between"
-                  onClick={() => navigate("/symptoms")}
-                >
-                  <span className="flex items-center gap-2">
-                    <Stethoscope className="h-4 w-4" />
-                    Analyze Symptoms
-                  </span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between"
-                  onClick={() => navigate("/upload")}
-                >
-                  <span className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    Upload Report
-                  </span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="outline"
-                  className="w-full justify-between"
-                  onClick={() => navigate("/history")}
-                >
-                  <span className="flex items-center gap-2">
-                    <Calendar className="h-4 w-4" />
-                    View History
-                  </span>
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </CardContent>
-            </Card>
-
-            {/* Recent Activity */}
-            <Card className="border-border/50 lg:col-span-2">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-info" />
-                  Recent Activity
-                </CardTitle>
-                <CardDescription>
-                  Your latest health analyses
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {predictions.length > 0 ? (
-                  <div className="space-y-3">
-                    {predictions.slice(0, 5).map((prediction) => (
-                      <div
-                        key={prediction.id}
-                        className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div
-                            className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                              prediction.prediction_type === "symptom"
-                                ? "bg-primary/10 text-primary"
-                                : "bg-info/10 text-info"
-                            }`}
-                          >
-                            {prediction.prediction_type === "symptom" ? (
-                              <Stethoscope className="h-5 w-5" />
-                            ) : (
-                              <FileText className="h-5 w-5" />
-                            )}
-                          </div>
-                          <div>
-                            <p className="font-medium text-sm">
-                              {prediction.prediction_type === "symptom"
-                                ? "Symptom Analysis"
-                                : "Report Analysis"}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {format(new Date(prediction.created_at), "MMM d, yyyy 'at' h:mm a")}
-                            </p>
-                          </div>
+            {/* Today's Health Metrics */}
+            {todayMetrics && (todayMetrics.steps || todayMetrics.water_intake || todayMetrics.medications_total > 0) && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4, duration: 0.4 }}
+              >
+                <Card className="border-border/50 metric-card mb-6">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Heart className="h-5 w-5 text-primary" />
+                      Today's Health Snapshot
+                    </CardTitle>
+                    <CardDescription>Quick overview of your daily health metrics</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      {todayMetrics.steps !== null && (
+                        <div className="text-center p-4 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors">
+                          <Footprints className="h-6 w-6 mx-auto text-primary mb-2" />
+                          <p className="text-2xl font-bold">{todayMetrics.steps.toLocaleString()}</p>
+                          <p className="text-xs text-muted-foreground">Steps</p>
                         </div>
-                        <div className="flex items-center gap-2">
-                          {prediction.predicted_diseases &&
-                            prediction.predicted_diseases.length > 0 && (
-                              <Badge variant="outline" className="text-xs">
-                                {prediction.predicted_diseases.length} conditions
-                              </Badge>
-                            )}
+                      )}
+                      {todayMetrics.water_intake !== null && (
+                        <div className="text-center p-4 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors">
+                          <Droplets className="h-6 w-6 mx-auto text-info mb-2" />
+                          <p className="text-2xl font-bold">{todayMetrics.water_intake}</p>
+                          <p className="text-xs text-muted-foreground">Glasses of Water</p>
+                        </div>
+                      )}
+                      {todayMetrics.medications_total > 0 && (
+                        <div className="text-center p-4 rounded-lg bg-muted/50 hover:bg-muted/70 transition-colors">
+                          <Pill className="h-6 w-6 mx-auto text-success mb-2" />
+                          <p className="text-2xl font-bold">{todayMetrics.medications_logged}/{todayMetrics.medications_total}</p>
+                          <p className="text-xs text-muted-foreground">Medications Taken</p>
+                        </div>
+                      )}
+                      <Link to="/health-tracking" className="text-center p-4 rounded-lg bg-primary/10 hover:bg-primary/20 transition-colors cursor-pointer">
+                        <ArrowRight className="h-6 w-6 mx-auto text-primary mb-2" />
+                        <p className="text-sm font-medium text-primary">View All</p>
+                        <p className="text-xs text-muted-foreground">Health Tracking</p>
+                      </Link>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
+
+            {/* Main Content Grid */}
+            <StaggerContainer className="grid gap-6 lg:grid-cols-2" staggerDelay={0.1} delayStart={0.5}>
+              <StaggerItem>
+                <Card className="border-border/50 hover:shadow-md transition-shadow duration-300">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <AlertCircle className="h-5 w-5 text-warning" />
+                      Recent Conditions Analyzed
+                    </CardTitle>
+                    <CardDescription>Conditions from your recent health analyses</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {stats?.recentConditions && stats.recentConditions.length > 0 ? (
+                      <div className="flex flex-wrap gap-2">
+                        {stats.recentConditions.map((condition, index) => (
+                          <Badge key={index} variant="secondary" className="text-sm">
+                            {condition}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-muted-foreground text-sm">
+                        No recent conditions analyzed. Start by checking your symptoms!
+                      </p>
+                    )}
+                  </CardContent>
+                </Card>
+              </StaggerItem>
+
+              <StaggerItem>
+                <Card className="border-border/50 hover:shadow-md transition-shadow duration-300">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <CheckCircle className="h-5 w-5 text-success" />
+                      Quick Actions
+                    </CardTitle>
+                    <CardDescription>Take control of your health today</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    <Button variant="outline" className="w-full justify-between group" onClick={() => navigate("/symptoms")}>
+                      <span className="flex items-center gap-2">
+                        <Stethoscope className="h-4 w-4" />
+                        Analyze Symptoms
+                      </span>
+                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                    <Button variant="outline" className="w-full justify-between group" onClick={() => navigate("/upload")}>
+                      <span className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        Upload Report
+                      </span>
+                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                    <Button variant="outline" className="w-full justify-between group" onClick={() => navigate("/history")}>
+                      <span className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        View History
+                      </span>
+                      <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                    </Button>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
+
+              <StaggerItem className="lg:col-span-2">
+                <Card className="border-border/50 hover:shadow-md transition-shadow duration-300">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <TrendingUp className="h-5 w-5 text-info" />
+                      Recent Activity
+                    </CardTitle>
+                    <CardDescription>Your latest health analyses</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {predictions.length > 0 ? (
+                      <div className="space-y-3">
+                        {predictions.slice(0, 5).map((prediction, idx) => (
+                          <motion.div
+                            key={prediction.id}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: 0.6 + idx * 0.05, duration: 0.3 }}
+                            className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex items-center gap-3">
+                              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                                prediction.prediction_type === "symptom"
+                                  ? "bg-primary/10 text-primary"
+                                  : "bg-info/10 text-info"
+                              }`}>
+                                {prediction.prediction_type === "symptom" ? (
+                                  <Stethoscope className="h-5 w-5" />
+                                ) : (
+                                  <FileText className="h-5 w-5" />
+                                )}
+                              </div>
+                              <div>
+                                <p className="font-medium text-sm">
+                                  {prediction.prediction_type === "symptom" ? "Symptom Analysis" : "Report Analysis"}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {format(new Date(prediction.created_at), "MMM d, yyyy 'at' h:mm a")}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              {prediction.predicted_diseases && prediction.predicted_diseases.length > 0 && (
+                                <Badge variant="outline" className="text-xs">
+                                  {prediction.predicted_diseases.length} conditions
+                                </Badge>
+                              )}
+                            </div>
+                          </motion.div>
+                        ))}
+                        {predictions.length > 5 && (
+                          <Button variant="ghost" className="w-full group" onClick={() => navigate("/history")}>
+                            View all {predictions.length} analyses
+                            <ArrowRight className="ml-2 h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                          </Button>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-center py-8">
+                        <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                        <h3 className="font-medium mb-2">No activity yet</h3>
+                        <p className="text-sm text-muted-foreground mb-4">
+                          Start tracking your health by analyzing symptoms or uploading a report.
+                        </p>
+                        <div className="flex gap-3 justify-center">
+                          <Button onClick={() => navigate("/symptoms")}>
+                            <Stethoscope className="mr-2 h-4 w-4" />
+                            Analyze Symptoms
+                          </Button>
                         </div>
                       </div>
-                    ))}
-                    {predictions.length > 5 && (
-                      <Button
-                        variant="ghost"
-                        className="w-full"
-                        onClick={() => navigate("/history")}
-                      >
-                        View all {predictions.length} analyses
-                        <ArrowRight className="ml-2 h-4 w-4" />
-                      </Button>
                     )}
-                  </div>
-                ) : (
-                  <div className="text-center py-8">
-                    <Activity className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                    <h3 className="font-medium mb-2">No activity yet</h3>
-                    <p className="text-sm text-muted-foreground mb-4">
-                      Start tracking your health by analyzing symptoms or uploading a report.
-                    </p>
-                    <div className="flex gap-3 justify-center">
-                      <Button onClick={() => navigate("/symptoms")}>
-                        <Stethoscope className="mr-2 h-4 w-4" />
-                        Analyze Symptoms
-                      </Button>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </StaggerItem>
+            </StaggerContainer>
           </div>
         </div>
-      </div>
+      </PageTransition>
     </Layout>
   );
 };
