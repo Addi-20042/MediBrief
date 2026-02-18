@@ -9,6 +9,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
+import PageTransition from "@/components/animations/PageTransition";
+import { motion, AnimatePresence } from "framer-motion";
 import { downloadReport, printReport, getProbabilityPercent } from "@/lib/downloadReport";
 import { format } from "date-fns";
 import ShareReportDialog from "@/components/ShareReportDialog";
@@ -205,10 +207,11 @@ const UploadReport = () => {
 
   return (
     <Layout>
+      <PageTransition>
       <div className="container py-8 md:py-12">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
-          <div className="text-center mb-8">
+          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="text-center mb-8">
             <div className="inline-flex items-center gap-2 rounded-full bg-info/10 px-4 py-1.5 text-sm font-medium text-info mb-4">
               <FileText className="h-4 w-4" />
               Medical Report Analysis
@@ -219,7 +222,7 @@ const UploadReport = () => {
             <p className="text-muted-foreground max-w-xl mx-auto">
               Upload or paste your medical report for AI-powered analysis, summarization, and insights.
             </p>
-          </div>
+          </motion.div>
 
           {/* Input Section */}
           <Card className="mb-8 border-border/50 shadow-lg">
@@ -509,6 +512,7 @@ COMPLETE BLOOD COUNT (CBC)
           )}
         </div>
       </div>
+      </PageTransition>
     </Layout>
   );
 };

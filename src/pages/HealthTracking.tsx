@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import PageTransition from "@/components/animations/PageTransition";
+import HealthTrackingSkeleton from "@/components/skeletons/HealthTrackingSkeleton";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -410,17 +412,12 @@ const HealthTracking = () => {
   };
 
   if (loading) {
-    return (
-      <Layout>
-        <div className="container py-12 flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      </Layout>
-    );
+    return <HealthTrackingSkeleton />;
   }
 
   return (
     <Layout>
+      <PageTransition>
       <div className="container py-8 md:py-12">
         <div className="max-w-6xl mx-auto">
           {/* Header */}
@@ -885,6 +882,7 @@ const HealthTracking = () => {
           </Tabs>
         </div>
       </div>
+      </PageTransition>
     </Layout>
   );
 };
