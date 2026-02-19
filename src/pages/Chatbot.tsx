@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -10,7 +11,7 @@ import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  MessageCircle, Send, Loader2, Bot, User, Sparkles, Trash2, AlertCircle,
+  Send, Loader2, Bot, User, Trash2, AlertCircle, LogIn,
 } from "lucide-react";
 
 interface Message {
@@ -18,12 +19,16 @@ interface Message {
   content: string;
 }
 
+const FREE_MESSAGE_LIMIT = 3;
+
 const Chatbot = () => {
+  const { user, loading: authLoading } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
     { role: "assistant", content: "Hello! I'm your Medical AI Assistant. I can help you with health-related questions, explain medical terms, and provide general wellness guidance. How can I assist you today?" },
   ]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [userMessageCount, setUserMessageCount] = useState(0);
   const { toast } = useToast();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -35,6 +40,8 @@ const Chatbot = () => {
     "How do I manage stress effectively?",
   ];
 
+  const isLimitReached = !user && userMessageCount >= FREE_MESSAGE_LIMIT;
+
   useEffect(() => {
     if (scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
@@ -44,13 +51,18 @@ const Chatbot = () => {
 
   const streamChat = async (userMessages: Message[]) => {
     const { data: { session } } = await supabase.auth.getSession();
-    const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!session?.access_token) {
+      throw new Error("Please sign in to use the AI chatbot.");
+    }
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
     const response = await fetch(CHAT_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
       body: JSON.stringify({ messages: userMessages }),
     });
+    if (response.status === 401) throw new Error("Please sign in to continue chatting.");
+    if (response.status === 429) throw new Error("Rate limit exceeded. Please try again in a moment.");
+    if (response.status === 402) throw new Error("Service temporarily unavailable. Please try again later.");
     if (!response.ok) { const errorData = await response.json().catch(() => ({})); throw new Error(errorData.error || "Failed to get response"); }
     if (!response.body) throw new Error("No response body");
     return response;
@@ -59,8 +71,15 @@ const Chatbot = () => {
   const sendMessage = async (messageText?: string) => {
     const text = messageText || input.trim();
     if (!text || isLoading) return;
+
+    if (!user) {
+      toast({ title: "Sign in required", description: "Please sign in to use the AI chatbot.", variant: "destructive" });
+      return;
+    }
+
     const userMessage: Message = { role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
+    setUserMessageCount((c) => c + 1);
     setInput("");
     setIsLoading(true);
     let assistantContent = "";
@@ -165,7 +184,23 @@ const Chatbot = () => {
                   </div>
                 </ScrollArea>
 
-                {messages.length <= 2 && (
+                {/* Login prompt for unauthenticated users */}
+                {!user && !authLoading && (
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="p-4 border-t border-border bg-primary/5">
+                    <div className="flex items-center gap-3">
+                      <LogIn className="h-5 w-5 text-primary flex-shrink-0" />
+                      <div className="flex-1">
+                        <p className="text-sm font-medium">Sign in to chat with the AI</p>
+                        <p className="text-xs text-muted-foreground">Create a free account to get personalized health guidance.</p>
+                      </div>
+                      <Link to="/login">
+                        <Button size="sm" className="gradient-primary text-primary-foreground">Sign In</Button>
+                      </Link>
+                    </div>
+                  </motion.div>
+                )}
+
+                {messages.length <= 2 && user && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.3 }} className="p-4 border-t border-border">
                     <p className="text-xs text-muted-foreground mb-2">Quick questions:</p>
                     <div className="flex flex-wrap gap-2">
@@ -180,8 +215,8 @@ const Chatbot = () => {
 
                 <div className="p-4 border-t border-border bg-muted/30">
                   <div className="flex gap-2">
-                    <Input ref={inputRef} placeholder="Ask a health question..." value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={handleKeyPress} disabled={isLoading} className="flex-1" />
-                    <Button onClick={() => sendMessage()} disabled={isLoading || !input.trim()} className="gradient-primary text-primary-foreground">
+                    <Input ref={inputRef} placeholder={user ? "Ask a health question..." : "Sign in to start chatting..."} value={input} onChange={(e) => setInput(e.target.value)} onKeyPress={handleKeyPress} disabled={isLoading || !user} className="flex-1" />
+                    <Button onClick={() => sendMessage()} disabled={isLoading || !input.trim() || !user} className="gradient-primary text-primary-foreground">
                       {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                     </Button>
                   </div>
