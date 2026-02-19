@@ -4,6 +4,8 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
 import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import { motion, AnimatePresence } from "framer-motion";
@@ -41,10 +43,12 @@ const Chatbot = () => {
   }, [messages]);
 
   const streamChat = async (userMessages: Message[]) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
     const response = await fetch(CHAT_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}` },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ messages: userMessages }),
     });
     if (!response.ok) { const errorData = await response.json().catch(() => ({})); throw new Error(errorData.error || "Failed to get response"); }
