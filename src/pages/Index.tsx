@@ -220,7 +220,7 @@ const Index = () => {
                 Join thousands of users who trust Medical AI for health insights.
               </p>
               <Link to="/signup">
-                <Button size="lg" className="bg-white text-foreground hover:bg-white/90">
+                <Button size="lg" className="bg-white text-gray-900 hover:bg-white/90">
                   Get Started Free
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
