@@ -1,22 +1,66 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { diseases, diseaseCategories, Disease } from "@/lib/diseases";
 import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerContainer";
 import { motion, AnimatePresence } from "framer-motion";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   BookOpen, Search, AlertCircle, Activity, Pill, Shield, Heart, Stethoscope, X,
 } from "lucide-react";
+
+const DiseaseDetails = ({ disease, onClose, getCategoryColor }: { disease: Disease; onClose: () => void; getCategoryColor: (c: string) => string }) => (
+  <>
+    <div className="flex items-start justify-between mb-4">
+      <div>
+        <Badge className={getCategoryColor(disease.category)} variant="outline">{disease.category}</Badge>
+        <h2 className="text-xl font-semibold mt-2">{disease.name}</h2>
+      </div>
+      <Button variant="ghost" size="icon" onClick={onClose} className="hidden lg:flex"><X className="h-4 w-4" /></Button>
+    </div>
+    <p className="text-muted-foreground mb-4">{disease.description}</p>
+    <Accordion type="single" collapsible className="w-full">
+      <AccordionItem value="symptoms">
+        <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Stethoscope className="h-4 w-4 text-primary" />Symptoms</span></AccordionTrigger>
+        <AccordionContent><ul className="space-y-1.5">{disease.symptoms.map((s, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-primary mt-1">•</span>{s}</li>))}</ul></AccordionContent>
+      </AccordionItem>
+      <AccordionItem value="causes">
+        <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Activity className="h-4 w-4 text-info" />Causes</span></AccordionTrigger>
+        <AccordionContent><ul className="space-y-1.5">{disease.causes.map((c, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-info mt-1">•</span>{c}</li>))}</ul></AccordionContent>
+      </AccordionItem>
+      <AccordionItem value="prevention">
+        <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Shield className="h-4 w-4 text-success" />Prevention</span></AccordionTrigger>
+        <AccordionContent><ul className="space-y-1.5">{disease.prevention.map((p, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-success mt-1">•</span>{p}</li>))}</ul></AccordionContent>
+      </AccordionItem>
+      <AccordionItem value="treatment">
+        <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Pill className="h-4 w-4 text-warning" />Treatment</span></AccordionTrigger>
+        <AccordionContent><ul className="space-y-1.5">{disease.treatment.map((t, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-warning mt-1">•</span>{t}</li>))}</ul></AccordionContent>
+      </AccordionItem>
+      <AccordionItem value="risk">
+        <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Heart className="h-4 w-4 text-destructive" />Risk Factors</span></AccordionTrigger>
+        <AccordionContent><ul className="space-y-1.5">{disease.riskFactors.map((r, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-destructive mt-1">•</span>{r}</li>))}</ul></AccordionContent>
+      </AccordionItem>
+    </Accordion>
+    <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
+      <div className="flex items-start gap-2">
+        <AlertCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
+        <div><p className="font-medium text-sm mb-1">When to See a Doctor</p><p className="text-sm text-muted-foreground">{disease.whenToSeeDoctor}</p></div>
+      </div>
+    </div>
+  </>
+);
 
 const Learn = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("All");
   const [selectedDisease, setSelectedDisease] = useState<Disease | null>(null);
+  const isMobile = useIsMobile();
 
   const filteredDiseases = diseases.filter((disease) => {
     const matchesSearch =
@@ -117,66 +161,48 @@ const Learn = () => {
               )}
             </div>
 
-            <div className="lg:sticky lg:top-20 lg:self-start">
-              <AnimatePresence mode="wait">
-                {selectedDisease ? (
-                  <motion.div key={selectedDisease.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.3 }}>
-                    <Card className="border-border/50 shadow-lg">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between">
-                          <div>
-                            <Badge className={getCategoryColor(selectedDisease.category)} variant="outline">{selectedDisease.category}</Badge>
-                            <CardTitle className="text-xl mt-2">{selectedDisease.name}</CardTitle>
-                          </div>
-                          <Button variant="ghost" size="icon" onClick={() => setSelectedDisease(null)}><X className="h-4 w-4" /></Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent className="max-h-[calc(100vh-12rem)] overflow-y-auto">
-                        <p className="text-muted-foreground mb-4">{selectedDisease.description}</p>
-                        <Accordion type="single" collapsible className="w-full">
-                          <AccordionItem value="symptoms">
-                            <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Stethoscope className="h-4 w-4 text-primary" />Symptoms</span></AccordionTrigger>
-                            <AccordionContent><ul className="space-y-1.5">{selectedDisease.symptoms.map((s, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-primary mt-1">•</span>{s}</li>))}</ul></AccordionContent>
-                          </AccordionItem>
-                          <AccordionItem value="causes">
-                            <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Activity className="h-4 w-4 text-info" />Causes</span></AccordionTrigger>
-                            <AccordionContent><ul className="space-y-1.5">{selectedDisease.causes.map((c, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-info mt-1">•</span>{c}</li>))}</ul></AccordionContent>
-                          </AccordionItem>
-                          <AccordionItem value="prevention">
-                            <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Shield className="h-4 w-4 text-success" />Prevention</span></AccordionTrigger>
-                            <AccordionContent><ul className="space-y-1.5">{selectedDisease.prevention.map((p, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-success mt-1">•</span>{p}</li>))}</ul></AccordionContent>
-                          </AccordionItem>
-                          <AccordionItem value="treatment">
-                            <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Pill className="h-4 w-4 text-warning" />Treatment</span></AccordionTrigger>
-                            <AccordionContent><ul className="space-y-1.5">{selectedDisease.treatment.map((t, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-warning mt-1">•</span>{t}</li>))}</ul></AccordionContent>
-                          </AccordionItem>
-                          <AccordionItem value="risk">
-                            <AccordionTrigger className="text-sm font-medium"><span className="flex items-center gap-2"><Heart className="h-4 w-4 text-destructive" />Risk Factors</span></AccordionTrigger>
-                            <AccordionContent><ul className="space-y-1.5">{selectedDisease.riskFactors.map((r, i) => (<li key={i} className="flex items-start gap-2 text-sm"><span className="text-destructive mt-1">•</span>{r}</li>))}</ul></AccordionContent>
-                          </AccordionItem>
-                        </Accordion>
-                        <div className="mt-4 p-4 rounded-lg bg-primary/5 border border-primary/10">
-                          <div className="flex items-start gap-2">
-                            <AlertCircle className="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
-                            <div><p className="font-medium text-sm mb-1">When to See a Doctor</p><p className="text-sm text-muted-foreground">{selectedDisease.whenToSeeDoctor}</p></div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                ) : (
-                  <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
-                    <Card className="border-dashed border-2 border-border">
-                      <CardContent className="py-12 text-center">
-                        <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                        <h3 className="text-lg font-medium mb-2">Select a Disease</h3>
-                        <p className="text-sm text-muted-foreground">Click on a disease card to view detailed information.</p>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+            {/* Desktop: sticky sidebar */}
+            {!isMobile && (
+              <div className="hidden lg:block lg:sticky lg:top-20 lg:self-start">
+                <AnimatePresence mode="wait">
+                  {selectedDisease ? (
+                    <motion.div key={selectedDisease.id} initial={{ opacity: 0, x: 12 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -12 }} transition={{ duration: 0.3 }}>
+                      <Card className="border-border/50 shadow-lg">
+                        <CardContent className="pt-6 max-h-[calc(100vh-12rem)] overflow-y-auto">
+                          <DiseaseDetails disease={selectedDisease} onClose={() => setSelectedDisease(null)} getCategoryColor={getCategoryColor} />
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      <Card className="border-dashed border-2 border-border">
+                        <CardContent className="py-12 text-center">
+                          <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+                          <h3 className="text-lg font-medium mb-2">Select a Disease</h3>
+                          <p className="text-sm text-muted-foreground">Click on a disease card to view detailed information.</p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* Mobile: bottom sheet */}
+            {isMobile && (
+              <Sheet open={!!selectedDisease} onOpenChange={(open) => { if (!open) setSelectedDisease(null); }}>
+                <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl">
+                  <SheetHeader className="sr-only">
+                    <SheetTitle>{selectedDisease?.name ?? "Disease Details"}</SheetTitle>
+                  </SheetHeader>
+                  {selectedDisease && (
+                    <div className="pt-2">
+                      <DiseaseDetails disease={selectedDisease} onClose={() => setSelectedDisease(null)} getCategoryColor={getCategoryColor} />
+                    </div>
+                  )}
+                </SheetContent>
+              </Sheet>
+            )}
           </div>
         </div>
       </PageTransition>
