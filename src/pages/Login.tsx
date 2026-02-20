@@ -6,7 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Loader2, Mail, Lock, Chrome } from "lucide-react";
+import { Activity, Loader2, Mail, Lock, Chrome, ShieldCheck, Stethoscope, Brain } from "lucide-react";
+import { motion } from "framer-motion";
 import { z } from "zod";
 
 const loginSchema = z.object({
@@ -23,7 +24,6 @@ const Login = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Redirect if already authenticated (e.g. after Google OAuth return)
   useEffect(() => {
     if (!authLoading && user) {
       navigate("/dashboard", { replace: true });
@@ -51,16 +51,9 @@ const Login = () => {
     setLoading(false);
 
     if (error) {
-      toast({
-        title: "Login Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Login Failed", description: error.message, variant: "destructive" });
     } else {
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully signed in.",
-      });
+      toast({ title: "Welcome back!", description: "You have successfully signed in." });
       navigate("/dashboard");
     }
   };
@@ -68,117 +61,103 @@ const Login = () => {
   const handleGoogleSignIn = async () => {
     const { error } = await signInWithGoogle();
     if (error) {
-      toast({
-        title: "Login Failed",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Login Failed", description: error.message, variant: "destructive" });
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted/50 p-4">
-      <div className="w-full max-w-md">
-        {/* Logo */}
-        <Link to="/" className="flex items-center justify-center gap-2.5 mb-8">
-          <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-primary shadow-md">
-            <Activity className="h-6 w-6 text-primary-foreground" />
+    <div className="min-h-screen flex bg-background">
+      {/* Left decorative panel — hidden on mobile */}
+      <div className="hidden lg:flex lg:w-1/2 relative overflow-hidden gradient-primary items-center justify-center p-12">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_50%,hsl(var(--primary)/0.3),transparent_70%)]" />
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.7 }} className="relative z-10 max-w-md text-primary-foreground">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
+              <Activity className="h-7 w-7" />
+            </div>
+            <span className="text-3xl font-bold">MedicalAI</span>
           </div>
-          <span className="text-2xl font-bold text-foreground">
-            Medical<span className="text-primary">AI</span>
-          </span>
-        </Link>
-
-        <Card className="border-border/50 shadow-xl">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl">Welcome Back</CardTitle>
-            <CardDescription>Sign in to continue to Medical AI</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Social Login */}
-            <Button
-              variant="outline"
-              onClick={handleGoogleSignIn}
-              className="w-full"
-            >
-              <Chrome className="mr-2 h-4 w-4" />
-              Continue with Google
-            </Button>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-              </div>
-            </div>
-
-            {/* Email Login Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="you@example.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10"
-                    disabled={loading}
-                  />
+          <h2 className="text-3xl font-bold mb-4 leading-tight">Your personal AI health companion</h2>
+          <p className="text-primary-foreground/80 text-lg mb-10">
+            Get instant symptom analysis, understand medical reports, and track your health — all powered by AI.
+          </p>
+          <div className="space-y-5">
+            {[
+              { icon: Stethoscope, text: "AI-powered symptom analysis" },
+              { icon: Brain, text: "Smart medical report insights" },
+              { icon: ShieldCheck, text: "Private & secure health data" },
+            ].map(({ icon: Icon, text }, i) => (
+              <motion.div key={i} initial={{ opacity: 0, x: -16 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.15 }} className="flex items-center gap-3">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/15 backdrop-blur-sm">
+                  <Icon className="h-5 w-5" />
                 </div>
-                {errors.email && (
-                  <p className="text-sm text-destructive">{errors.email}</p>
-                )}
+                <span className="text-sm font-medium">{text}</span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Right form panel */}
+      <div className="flex flex-1 items-center justify-center p-6 sm:p-10">
+        <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-md">
+          {/* Mobile logo */}
+          <Link to="/" className="flex items-center justify-center gap-2.5 mb-8 lg:hidden">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg gradient-primary shadow-md">
+              <Activity className="h-6 w-6 text-primary-foreground" />
+            </div>
+            <span className="text-2xl font-bold text-foreground">
+              Medical<span className="text-primary">AI</span>
+            </span>
+          </Link>
+
+          <div className="mb-8 text-center lg:text-left">
+            <h1 className="text-2xl font-bold text-foreground">Welcome Back</h1>
+            <p className="text-muted-foreground mt-1">Sign in to continue to Medical AI</p>
+          </div>
+
+          {/* Social Login */}
+          <Button variant="outline" onClick={handleGoogleSignIn} className="w-full h-11 mb-6">
+            <Chrome className="mr-2 h-4 w-4" />
+            Continue with Google
+          </Button>
+
+          <div className="relative mb-6">
+            <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-border" /></div>
+            <div className="relative flex justify-center text-xs uppercase"><span className="bg-background px-2 text-muted-foreground">Or continue with email</span></div>
+          </div>
+
+          {/* Email Login Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10 h-11" disabled={loading} />
               </div>
-              <div className="space-y-2">
+              {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="password"
-                    type="password"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="pl-10"
-                    disabled={loading}
-                  />
-                </div>
-                {errors.password && (
-                  <p className="text-sm text-destructive">{errors.password}</p>
-                )}
+                <Link to="/reset-password" className="text-xs text-muted-foreground hover:text-primary transition-colors">Forgot password?</Link>
               </div>
-              <Button type="submit" className="w-full gradient-primary text-primary-foreground" disabled={loading}>
-                {loading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Signing In...
-                  </>
-                ) : (
-                  "Sign In"
-                )}
-              </Button>
-            </form>
-
-            <div className="text-center">
-              <Link to="/reset-password" className="text-sm text-muted-foreground hover:text-primary">
-                Forgot your password?
-              </Link>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="password" type="password" placeholder="••••••••" value={password} onChange={(e) => setPassword(e.target.value)} className="pl-10 h-11" disabled={loading} />
+              </div>
+              {errors.password && <p className="text-sm text-destructive">{errors.password}</p>}
             </div>
-          </CardContent>
-          <CardFooter className="justify-center">
-            <p className="text-sm text-muted-foreground">
-              Don't have an account?{" "}
-              <Link to="/signup" className="font-medium text-primary hover:underline">
-                Sign up
-              </Link>
-            </p>
-          </CardFooter>
-        </Card>
+            <Button type="submit" className="w-full h-11 gradient-primary text-primary-foreground" disabled={loading}>
+              {loading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Signing In...</>) : "Sign In"}
+            </Button>
+          </form>
+
+          <p className="text-center text-sm text-muted-foreground mt-6">
+            Don't have an account?{" "}
+            <Link to="/signup" className="font-medium text-primary hover:underline">Sign up</Link>
+          </p>
+        </motion.div>
       </div>
     </div>
   );
