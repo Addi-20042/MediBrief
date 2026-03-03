@@ -6,123 +6,100 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// Input validation constants
 const MIN_REPORT_LENGTH = 20;
 const MAX_REPORT_LENGTH = 50000;
 
-// Sanitize text to prevent prompt injection
 function sanitizeText(text: string): string {
-  return text
-    .replace(/[<>]/g, '') // Remove potential HTML tags
-    .trim();
+  return text.replace(/[<>]/g, '').trim();
 }
 
-// Validate report text input
 function validateReportText(reportText: unknown): { valid: boolean; error?: string; sanitized?: string } {
-  if (typeof reportText !== 'string') {
-    return { valid: false, error: "Report text must be a string" };
-  }
-  
+  if (typeof reportText !== 'string') return { valid: false, error: "Report text must be a string" };
   const trimmed = reportText.trim();
-  
-  if (trimmed.length === 0) {
-    return { valid: false, error: "Please provide report text to analyze" };
-  }
-  
-  if (trimmed.length < MIN_REPORT_LENGTH) {
-    return { valid: false, error: `Please provide at least ${MIN_REPORT_LENGTH} characters of report text` };
-  }
-  
-  if (trimmed.length > MAX_REPORT_LENGTH) {
-    return { valid: false, error: `Report text cannot exceed ${MAX_REPORT_LENGTH} characters` };
-  }
-  
+  if (trimmed.length === 0) return { valid: false, error: "Please provide report text to analyze" };
+  if (trimmed.length < MIN_REPORT_LENGTH) return { valid: false, error: `Please provide at least ${MIN_REPORT_LENGTH} characters of report text` };
+  if (trimmed.length > MAX_REPORT_LENGTH) return { valid: false, error: `Report text cannot exceed ${MAX_REPORT_LENGTH} characters` };
   return { valid: true, sanitized: sanitizeText(trimmed) };
 }
 
-serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  const providers = [
+    {
+      name: "Google Gemini Direct",
+      url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      key: Deno.env.get("GOOGLE_GEMINI_API_KEY"),
+      model: "gemini-2.0-flash",
+    },
+    {
+      name: "Lovable AI Gateway",
+      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+      key: Deno.env.get("LOVABLE_API_KEY"),
+      model: "google/gemini-3-flash-preview",
+    },
+  ];
+
+  for (const provider of providers) {
+    if (!provider.key) { console.log(`Skipping ${provider.name}: no API key`); continue; }
+    try {
+      console.log(`Trying ${provider.name}...`);
+      const response = await fetch(provider.url, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: provider.model,
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
+          temperature: 0.2,
+        }),
+      });
+      if (response.status === 429 || response.status === 402) { console.log(`${provider.name} error ${response.status}, trying next...`); continue; }
+      if (!response.ok) { const t = await response.text(); console.error(`${provider.name} error:`, response.status, t); continue; }
+      const data = await response.json();
+      const content = data.choices?.[0]?.message?.content;
+      if (content) { console.log(`${provider.name} succeeded`); return content; }
+    } catch (err) { console.error(`${provider.name} failed:`, err); }
   }
+  throw new Error("All AI providers failed");
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // Authentication check
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: "Missing or invalid authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Missing or invalid authorization header" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       { global: { headers: { Authorization: authHeader } } }
     );
-
     const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    
     if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: "Unauthorized - invalid token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: "Unauthorized - invalid token" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // Parse and validate input
     let body: unknown;
-    try {
-      body = await req.json();
-    } catch {
-      return new Response(
-        JSON.stringify({ error: "Invalid JSON body" }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+    try { body = await req.json(); } catch {
+      return new Response(JSON.stringify({ error: "Invalid JSON body" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
     const { reportText } = body as { reportText?: unknown };
     const validation = validateReportText(reportText);
-    
     if (!validation.valid) {
-      return new Response(
-        JSON.stringify({ error: validation.error }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return new Response(JSON.stringify({ error: validation.error }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    
-    if (!LOVABLE_API_KEY) {
-      throw new Error("LOVABLE_API_KEY is not configured");
-    }
-
-    const systemPrompt = `You are an expert medical AI assistant specialized in analyzing medical reports, lab results, and diagnostic tests. You have extensive training in clinical pathology, radiology, and laboratory medicine. You are NOT a doctor and your analysis is for educational purposes only.
+    const systemPrompt = `You are an expert medical AI assistant specialized in analyzing medical reports, lab results, and diagnostic tests. You are NOT a doctor and your analysis is for educational purposes only.
 
 COMPREHENSIVE ANALYSIS FRAMEWORK:
-
-1. REPORT TYPE IDENTIFICATION:
-   - Laboratory tests (CBC, metabolic panels, lipid profiles, etc.)
-   - Imaging reports (X-ray, CT, MRI, ultrasound)
-   - Pathology reports
-   - Vital signs and physical examination findings
-   - Specialty test results
-
-2. KEY FINDINGS ANALYSIS:
-   For each finding, evaluate:
-   - Normal vs abnormal status with reference ranges
-   - Clinical significance and severity
-   - Trending (if multiple values provided)
-   - Correlation with other findings
-   - Potential causes of abnormalities
-
-3. DIFFERENTIAL DIAGNOSIS:
-   - List possible conditions based on findings
-   - Calculate probability using:
-     * Number of supporting findings
-     * Severity of abnormalities
-     * Clinical patterns and correlations
-   - Consider both common and serious conditions
+1. REPORT TYPE IDENTIFICATION: Laboratory tests, imaging reports, pathology reports, vital signs, specialty tests
+2. KEY FINDINGS ANALYSIS: Normal vs abnormal status, clinical significance, trending, correlation, potential causes
+3. DIFFERENTIAL DIAGNOSIS: List possible conditions, calculate probability, consider common and serious conditions
 
 PROBABILITY ASSESSMENT:
 - "High" (70-90%): Multiple findings strongly support this condition
@@ -135,83 +112,21 @@ URGENCY CLASSIFICATION:
 - "Routine": Minor deviations for scheduled review
 - "Follow-up": Normal with recommended monitoring
 
-INTERPRETATION GUIDELINES:
-- Always provide context for medical values
-- Explain implications in plain language
-- Highlight critical or panic values immediately
-- Suggest appropriate follow-up testing
-- Consider medication effects on lab values
-
-IMPORTANT: Always remind users to discuss results with their healthcare provider for proper interpretation.
+IMPORTANT: Always remind users to discuss results with their healthcare provider.
 
 Respond with a JSON object in this EXACT format:
 {
-  "summary": "Comprehensive plain language summary of the report findings, highlighting the most important results and their implications for the patient's health",
-  "keyFindings": [
-    {
-      "category": "Category (e.g., Blood Tests, Imaging, Vitals, Liver Function, Kidney Function)",
-      "finding": "Specific finding with value and reference range",
-      "status": "Normal/Abnormal/Borderline/Critical",
-      "interpretation": "Detailed explanation of what this finding means and its clinical significance"
-    }
-  ],
-  "possibleConditions": [
-    {
-      "name": "Condition Name",
-      "likelihood": "High/Medium/Low",
-      "relatedFindings": ["finding1", "finding2"],
-      "description": "Detailed description of the condition and why the findings suggest it"
-    }
-  ],
-  "recommendations": ["Specific actionable recommendation 1", "Specific actionable recommendation 2"],
+  "summary": "Comprehensive plain language summary",
+  "keyFindings": [{"category": "Category", "finding": "Finding with value", "status": "Normal/Abnormal/Borderline/Critical", "interpretation": "What this means"}],
+  "possibleConditions": [{"name": "Condition", "likelihood": "High/Medium/Low", "relatedFindings": ["finding1"], "description": "Description"}],
+  "recommendations": ["Recommendation 1"],
   "urgency": "Emergency/Urgent/Routine/Follow-up",
-  "disclaimer": "This AI analysis is for educational purposes only. Please consult your healthcare provider for proper interpretation and medical advice."
-}
+  "disclaimer": "This AI analysis is for educational purposes only."
+}`;
 
-Be thorough, accurate, and provide clinically relevant analysis.`;
+    const userPrompt = `Analyze this medical report comprehensively:\n\n${validation.sanitized}\n\nProvide a detailed analysis with accurate interpretations and actionable recommendations.`;
+    const content = await callAI(systemPrompt, userPrompt);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Analyze this medical report comprehensively. Extract all relevant values, identify abnormalities, and provide a thorough clinical interpretation:\n\n${validation.sanitized}\n\nProvide a detailed analysis with accurate interpretations and actionable recommendations.` },
-        ],
-        temperature: 0.2,
-      }),
-    });
-
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again in a moment." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      if (response.status === 402) {
-        return new Response(
-          JSON.stringify({ error: "Service temporarily unavailable. Please try again later." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
-      throw new Error("Failed to analyze report");
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content;
-
-    if (!content) {
-      throw new Error("No response from AI");
-    }
-
-    // Parse the JSON from the response
     let result;
     try {
       const jsonMatch = content.match(/```json\n?([\s\S]*?)\n?```/) || content.match(/```\n?([\s\S]*?)\n?```/);
@@ -219,24 +134,17 @@ Be thorough, accurate, and provide clinically relevant analysis.`;
       result = JSON.parse(jsonString.trim());
     } catch {
       result = {
-        summary: content,
-        keyFindings: [],
-        possibleConditions: [],
-        recommendations: ["Please consult your healthcare provider for proper interpretation of your medical report"],
+        summary: content, keyFindings: [], possibleConditions: [],
+        recommendations: ["Please consult your healthcare provider for proper interpretation"],
         urgency: "Follow-up",
-        disclaimer: "This AI analysis is for educational purposes only. Please consult your healthcare provider for proper interpretation and medical advice."
+        disclaimer: "This AI analysis is for educational purposes only."
       };
     }
 
-    return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("Error analyzing report:", error);
-    return new Response(
-      JSON.stringify({ error: "An error occurred while processing your request" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: "An error occurred while processing your request" }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

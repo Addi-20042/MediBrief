@@ -46,10 +46,10 @@ const Index = () => {
       href: "/chatbot",
     },
     {
-      icon: Siren,
-      title: "Emergency Help",
-      description: "Quick access to emergency contacts & first aid",
-      href: "/emergency",
+      icon: Activity,
+      title: "Health Tracking",
+      description: "Monitor your daily health metrics & progress",
+      href: "/health-tracking",
     },
   ];
 
@@ -168,15 +168,15 @@ const Index = () => {
           <div className="container">
             <StaggerContainer className="flex flex-col md:flex-row gap-4" staggerDelay={0.12}>
               <StaggerItem className="flex-1">
-                <Link to="/emergency" className="block h-full">
-                  <Card className="h-full border-destructive/30 bg-destructive/5 hover:bg-destructive/10 transition-colors">
+                <Link to="/learn" className="block h-full">
+                  <Card className="h-full border-primary/30 bg-primary/5 hover:bg-primary/10 transition-colors">
                     <CardContent className="p-5 flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-full bg-destructive/20 flex items-center justify-center">
-                        <Siren className="h-6 w-6 text-destructive" />
+                      <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center">
+                        <Brain className="h-6 w-6 text-primary" />
                       </div>
                       <div className="flex-1">
-                        <h3 className="font-semibold">Emergency Contacts</h3>
-                        <p className="text-sm text-muted-foreground">Quick access to ambulance & helplines</p>
+                        <h3 className="font-semibold">Disease Library</h3>
+                        <p className="text-sm text-muted-foreground">Explore conditions & medical information</p>
                       </div>
                       <ArrowRight className="h-5 w-5 text-muted-foreground" />
                     </CardContent>
