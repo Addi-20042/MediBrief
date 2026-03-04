@@ -96,11 +96,6 @@ const UploadReport = () => {
       });
       return;
     }
-    if (!user) {
-      toast({ title: "Sign in required", description: "Please sign in to use AI report analysis.", variant: "destructive" });
-      navigate("/login");
-      return;
-    }
 
     setLoading(true);
     setResult(null);

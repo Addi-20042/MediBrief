@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,7 +21,6 @@ function validateSymptoms(symptoms: unknown): { valid: boolean; error?: string; 
   return { valid: true, sanitized: sanitizeText(trimmed) };
 }
 
-// Try multiple AI providers with failover
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const providers = [
     {
@@ -40,55 +38,25 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
   ];
 
   for (const provider of providers) {
-    if (!provider.key) {
-      console.log(`Skipping ${provider.name}: no API key`);
-      continue;
-    }
-
+    if (!provider.key) { console.log(`Skipping ${provider.name}: no API key`); continue; }
     try {
       console.log(`Trying ${provider.name}...`);
       const response = await fetch(provider.url, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${provider.key}`,
-          "Content-Type": "application/json",
-        },
+        headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: provider.model,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
+          messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userPrompt }],
           temperature: 0.2,
         }),
       });
-
-      if (response.status === 429) {
-        console.log(`${provider.name} rate limited, trying next...`);
-        continue;
-      }
-      if (response.status === 402) {
-        console.log(`${provider.name} payment required, trying next...`);
-        continue;
-      }
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`${provider.name} error:`, response.status, errorText);
-        continue;
-      }
-
+      if (response.status === 429 || response.status === 402) { console.log(`${provider.name} error ${response.status}, trying next...`); continue; }
+      if (!response.ok) { const t = await response.text(); console.error(`${provider.name} error:`, response.status, t); continue; }
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
-      if (content) {
-        console.log(`${provider.name} succeeded`);
-        return content;
-      }
-      console.log(`${provider.name} returned no content`);
-    } catch (err) {
-      console.error(`${provider.name} failed:`, err);
-    }
+      if (content) { console.log(`${provider.name} succeeded`); return content; }
+    } catch (err) { console.error(`${provider.name} failed:`, err); }
   }
-
   throw new Error("All AI providers failed");
 }
 
@@ -98,24 +66,7 @@ serve(async (req) => {
   }
 
   try {
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: "Missing or invalid authorization header" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser();
-    if (userError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized - invalid token" }),
-        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-    }
-
+    // No authentication required - available to all users
     let body: unknown;
     try { body = await req.json(); } catch {
       return new Response(JSON.stringify({ error: "Invalid JSON body" }),

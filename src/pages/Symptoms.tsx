@@ -56,11 +56,6 @@ const Symptoms = () => {
       toast({ title: "Please enter symptoms", description: "Describe your symptoms to get an analysis.", variant: "destructive" });
       return;
     }
-    if (!user) {
-      toast({ title: "Sign in required", description: "Please sign in to use AI symptom analysis.", variant: "destructive" });
-      navigate("/login");
-      return;
-    }
     setLoading(true);
     setResult(null);
     try {
