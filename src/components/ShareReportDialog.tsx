@@ -171,6 +171,12 @@ const ShareReportDialog = ({ reportData, trigger }: ShareReportDialogProps) => {
                   {reportData.summary && <li>• AI-generated summary</li>}
                 </ul>
               </div>
+              <div className="rounded-lg bg-warning/10 border border-warning/20 p-3 text-sm">
+                <p className="font-medium text-warning mb-1">⚠️ Email Limitation</p>
+                <p className="text-muted-foreground">
+                  Without a custom email domain, reports can only be sent to the account owner's email address. For sending to any email, a verified custom domain is required.
+                </p>
+              </div>
             </div>
 
             <DialogFooter>
