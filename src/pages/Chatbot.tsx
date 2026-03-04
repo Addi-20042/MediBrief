@@ -50,17 +50,20 @@ const Chatbot = () => {
   }, [messages]);
 
   const streamChat = async (userMessages: Message[]) => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.access_token) {
-      throw new Error("Please sign in to use the AI chatbot.");
-    }
     const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    
+    // Add auth header if user is logged in, but don't require it
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.access_token) {
+      headers.Authorization = `Bearer ${session.access_token}`;
+    }
+    
     const response = await fetch(CHAT_URL, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+      headers,
       body: JSON.stringify({ messages: userMessages }),
     });
-    if (response.status === 401) throw new Error("Please sign in to continue chatting.");
     if (response.status === 429) throw new Error("Rate limit exceeded. Please try again in a moment.");
     if (response.status === 402) throw new Error("Service temporarily unavailable. Please try again later.");
     if (!response.ok) { const errorData = await response.json().catch(() => ({})); throw new Error(errorData.error || "Failed to get response"); }
@@ -72,10 +75,6 @@ const Chatbot = () => {
     const text = messageText || input.trim();
     if (!text || isLoading) return;
 
-    if (!user) {
-      toast({ title: "Sign in required", description: "Please sign in to use the AI chatbot.", variant: "destructive" });
-      return;
-    }
 
     const userMessage: Message = { role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
