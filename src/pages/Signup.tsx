@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Loader2, Mail, Lock, User, Chrome, ShieldCheck, Stethoscope, Brain } from "lucide-react";
+import { Activity, Loader2, Mail, Lock, User, Chrome, ShieldCheck, Stethoscope, Brain, Phone } from "lucide-react";
 import { motion } from "framer-motion";
 import { z } from "zod";
 
@@ -13,14 +13,16 @@ const signupSchema = z.object({
   fullName: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name is too long"),
   email: z.string().trim().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  phoneNumber: z.string().optional(),
 });
 
 const Signup = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ fullName?: string; email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ fullName?: string; email?: string; password?: string; phoneNumber?: string }>({});
   const { signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -35,12 +37,12 @@ const Signup = () => {
     e.preventDefault();
     setErrors({});
 
-    const result = signupSchema.safeParse({ fullName, email, password });
+    const result = signupSchema.safeParse({ fullName, email, password, phoneNumber });
     if (!result.success) {
-      const fieldErrors: { fullName?: string; email?: string; password?: string } = {};
+      const fieldErrors: { fullName?: string; email?: string; password?: string; phoneNumber?: string } = {};
       result.error.errors.forEach((err) => {
         if (err.path[0]) {
-          fieldErrors[err.path[0] as "fullName" | "email" | "password"] = err.message;
+          fieldErrors[err.path[0] as "fullName" | "email" | "password" | "phoneNumber"] = err.message;
         }
       });
       setErrors(fieldErrors);
