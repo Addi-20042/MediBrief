@@ -104,9 +104,27 @@ const Dashboard = () => {
         }
       });
 
-      const activityScore = Math.min(100, allPredictions.length * 10);
-      const recentActivityBonus = thisMonthPredictions.length > 0 ? 20 : 0;
-      const healthScore = Math.min(100, 50 + activityScore / 5 + recentActivityBonus);
+      // Health score starts at 100% and decreases based on concerning symptoms
+      let healthScore = 100;
+      // Each analysis with high-urgency conditions reduces score
+      allPredictions.forEach((p) => {
+        if (p.predicted_diseases && Array.isArray(p.predicted_diseases)) {
+          p.predicted_diseases.forEach((disease: any) => {
+            const probability = disease.probability || disease.likelihood || 0;
+            const urgency = (disease.urgency || "").toLowerCase();
+            if (urgency === "high" || probability > 80) {
+              healthScore -= 5;
+            } else if (urgency === "medium" || probability > 50) {
+              healthScore -= 2;
+            } else {
+              healthScore -= 1;
+            }
+          });
+        }
+      });
+      // Bonus for recent activity (being proactive about health)
+      if (thisMonthPredictions.length > 0) healthScore += 5;
+      healthScore = Math.max(10, Math.min(100, healthScore));
 
       setStats({
         totalAnalyses: allPredictions.length,

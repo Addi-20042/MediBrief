@@ -345,6 +345,29 @@ const HealthTracking = () => {
         description: taken ? "Medication marked as taken." : "Medication marked as skipped.",
       });
 
+      // Send SMS notification about medication log
+      try {
+        const { data: profileData } = await supabase
+          .from("profiles")
+          .select("phone_number, full_name")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const phoneNumber = (profileData as any)?.phone_number;
+        if (phoneNumber) {
+          const med = reminders.find(r => r.id === reminderId);
+          const medName = med?.medication_name || "medication";
+          const status = taken ? "taken" : "skipped";
+          const msg = `MediBrief: ${profileData?.full_name || "Patient"} has ${status} ${medName} (${med?.dosage || ""}) at ${new Date().toLocaleTimeString()}.`;
+          
+          await supabase.functions.invoke("send-sms", {
+            body: { phone_number: phoneNumber, message: msg, type: "medication_log" },
+          });
+        }
+      } catch (smsErr) {
+        console.error("SMS notification failed:", smsErr);
+      }
+
       fetchData();
     } catch (error) {
       console.error("Error logging medication:", error);

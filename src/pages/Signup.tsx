@@ -1,11 +1,12 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Loader2, Mail, Lock, User, Chrome, ShieldCheck, Stethoscope, Brain } from "lucide-react";
+import { Activity, Loader2, Mail, Lock, User, Chrome, ShieldCheck, Stethoscope, Brain, Phone } from "lucide-react";
 import { motion } from "framer-motion";
 import { z } from "zod";
 
@@ -13,14 +14,16 @@ const signupSchema = z.object({
   fullName: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name is too long"),
   email: z.string().trim().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  phoneNumber: z.string().optional(),
 });
 
 const Signup = () => {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<{ fullName?: string; email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ fullName?: string; email?: string; password?: string; phoneNumber?: string }>({});
   const { signUp, signInWithGoogle, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -35,12 +38,12 @@ const Signup = () => {
     e.preventDefault();
     setErrors({});
 
-    const result = signupSchema.safeParse({ fullName, email, password });
+    const result = signupSchema.safeParse({ fullName, email, password, phoneNumber });
     if (!result.success) {
-      const fieldErrors: { fullName?: string; email?: string; password?: string } = {};
+      const fieldErrors: { fullName?: string; email?: string; password?: string; phoneNumber?: string } = {};
       result.error.errors.forEach((err) => {
         if (err.path[0]) {
-          fieldErrors[err.path[0] as "fullName" | "email" | "password"] = err.message;
+          fieldErrors[err.path[0] as "fullName" | "email" | "password" | "phoneNumber"] = err.message;
         }
       });
       setErrors(fieldErrors);
@@ -54,7 +57,20 @@ const Signup = () => {
     if (error) {
       toast({ title: "Signup Failed", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Account Created!", description: "Welcome to Medical AI. You're now signed in." });
+      // Store phone number in profile after signup
+      if (phoneNumber.trim()) {
+        try {
+          const { data: { user: newUser } } = await supabase.auth.getUser();
+          if (newUser) {
+            await supabase.from("profiles").update({ phone_number: phoneNumber.trim() } as any).eq("user_id", newUser.id);
+            // Send welcome SMS
+            await supabase.functions.invoke("send-sms", {
+              body: { phone_number: phoneNumber.trim(), message: `Welcome to MediBrief, ${fullName}! Your AI health assistant is ready. Track symptoms, analyze reports, and manage medications all in one place.`, type: "welcome" },
+            });
+          }
+        } catch (e) { console.error("Phone save/SMS error:", e); }
+      }
+      toast({ title: "Account Created!", description: "Welcome to MediBrief. You're now signed in." });
       navigate("/dashboard");
     }
   };
@@ -76,11 +92,11 @@ const Signup = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
               <Activity className="h-7 w-7" />
             </div>
-            <span className="text-3xl font-bold">MedicalAI</span>
+            <span className="text-3xl font-bold">MediBrief</span>
           </div>
           <h2 className="text-3xl font-bold mb-4 leading-tight">Start your health journey today</h2>
           <p className="text-primary-foreground/80 text-lg mb-10">
-            Join thousands of users who trust Medical AI for personalized health insights.
+            Join thousands of users who trust MediBrief for personalized health insights.
           </p>
           <div className="space-y-5">
             {[
@@ -108,13 +124,13 @@ const Signup = () => {
               <Activity className="h-6 w-6 text-primary-foreground" />
             </div>
             <span className="text-2xl font-bold text-foreground">
-              Medical<span className="text-primary">AI</span>
+              Medi<span className="text-primary">Brief</span>
             </span>
           </Link>
 
           <div className="mb-8 text-center lg:text-left">
             <h1 className="text-2xl font-bold text-foreground">Create Account</h1>
-            <p className="text-muted-foreground mt-1">Get started with Medical AI today</p>
+            <p className="text-muted-foreground mt-1">Get started with MediBrief today</p>
           </div>
 
           {/* Social Signup */}
@@ -145,6 +161,14 @@ const Signup = () => {
                 <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10 h-11" disabled={loading} />
               </div>
               {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="phone" type="tel" placeholder="+91 9876543210" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="pl-10 h-11" disabled={loading} />
+              </div>
+              <p className="text-xs text-muted-foreground">For medication reminder SMS notifications</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>

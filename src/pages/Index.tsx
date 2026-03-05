@@ -82,7 +82,7 @@ const Index = () => {
                 className="text-3xl md:text-5xl font-bold tracking-tight mb-4"
               >
                 Your Personal{" "}
-                <span className="text-primary">Medical AI</span>
+                <span className="text-primary">MediBrief</span>
               </motion.h1>
               <motion.p
                 initial={{ opacity: 0 }}
@@ -217,7 +217,7 @@ const Index = () => {
                 Ready to Take Control of Your Health?
               </h2>
               <p className="text-white/80 mb-6 max-w-lg mx-auto">
-                Join thousands of users who trust Medical AI for health insights.
+                Join thousands of users who trust MediBrief for health insights.
               </p>
               <Link to="/signup">
                 <Button size="lg" className="bg-white text-gray-900 hover:bg-white/90">

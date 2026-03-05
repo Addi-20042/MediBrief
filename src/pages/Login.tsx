@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,16 @@ const Login = () => {
     if (error) {
       toast({ title: "Login Failed", description: error.message, variant: "destructive" });
     } else {
+      // Send login SMS notification
+      try {
+        const { data: profileData } = await supabase.from("profiles").select("phone_number, full_name").eq("user_id", (await supabase.auth.getUser()).data.user?.id || "").maybeSingle();
+        const phone = (profileData as any)?.phone_number;
+        if (phone) {
+          await supabase.functions.invoke("send-sms", {
+            body: { phone_number: phone, message: `MediBrief: Hi ${profileData?.full_name || "there"}! You have successfully logged in at ${new Date().toLocaleString()}. If this wasn't you, please secure your account immediately.`, type: "login" },
+          });
+        }
+      } catch (e) { console.error("Login SMS error:", e); }
       toast({ title: "Welcome back!", description: "You have successfully signed in." });
       navigate("/dashboard");
     }
@@ -75,7 +86,7 @@ const Login = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
               <Activity className="h-7 w-7" />
             </div>
-            <span className="text-3xl font-bold">MedicalAI</span>
+            <span className="text-3xl font-bold">MediBrief</span>
           </div>
           <h2 className="text-3xl font-bold mb-4 leading-tight">Your personal AI health companion</h2>
           <p className="text-primary-foreground/80 text-lg mb-10">
@@ -107,13 +118,13 @@ const Login = () => {
               <Activity className="h-6 w-6 text-primary-foreground" />
             </div>
             <span className="text-2xl font-bold text-foreground">
-              Medical<span className="text-primary">AI</span>
+              Medi<span className="text-primary">Brief</span>
             </span>
           </Link>
 
           <div className="mb-8 text-center lg:text-left">
             <h1 className="text-2xl font-bold text-foreground">Welcome Back</h1>
-            <p className="text-muted-foreground mt-1">Sign in to continue to Medical AI</p>
+            <p className="text-muted-foreground mt-1">Sign in to continue to MediBrief</p>
           </div>
 
           {/* Social Login */}
