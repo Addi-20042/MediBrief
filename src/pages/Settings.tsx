@@ -15,7 +15,7 @@ import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerCo
 import SettingsSkeleton from "@/components/skeletons/SettingsSkeleton";
 import {
   Settings as SettingsIcon, User, Bell, Shield, Save, LogOut,
-  Trash2, Sun, Moon, Monitor, Palette, Loader2,
+  Trash2, Sun, Moon, Monitor, Palette, Loader2, Phone,
 } from "lucide-react";
 import { useTheme } from "next-themes";
 import {
@@ -28,11 +28,13 @@ interface Profile {
   user_id: string;
   full_name: string | null;
   avatar_url: string | null;
+  phone_number: string | null;
 }
 
 const Settings = () => {
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
@@ -52,7 +54,7 @@ const Settings = () => {
     try {
       const { data, error } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
       if (error) throw error;
-      if (data) { setProfile(data); setFullName(data.full_name || ""); }
+      if (data) { setProfile(data as Profile); setFullName(data.full_name || ""); setPhoneNumber((data as any).phone_number || ""); }
     } catch (error) { console.error("Error fetching profile:", error); }
     finally { setLoading(false); }
   };
@@ -61,7 +63,7 @@ const Settings = () => {
     if (!user) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("profiles").update({ full_name: fullName.trim() || null }).eq("user_id", user.id);
+      const { error } = await supabase.from("profiles").update({ full_name: fullName.trim() || null, phone_number: phoneNumber.trim() || null } as any).eq("user_id", user.id);
       if (error) throw error;
       toast({ title: "Settings saved", description: "Your profile has been updated successfully." });
     } catch (error) {
@@ -114,6 +116,14 @@ const Settings = () => {
                     <div className="space-y-2">
                       <Label htmlFor="fullName">Full Name</Label>
                       <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter your full name" />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="phoneNumber">Phone Number</Label>
+                      <div className="relative">
+                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input id="phoneNumber" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="+91 9876543210" className="pl-10" />
+                      </div>
+                      <p className="text-xs text-muted-foreground">Used for medication reminder SMS notifications</p>
                     </div>
                     <Button onClick={handleSaveProfile} disabled={saving} className="gradient-primary text-primary-foreground">
                       {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : <><Save className="mr-2 h-4 w-4" />Save Changes</>}
