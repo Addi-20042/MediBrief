@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,6 +57,19 @@ const Signup = () => {
     if (error) {
       toast({ title: "Signup Failed", description: error.message, variant: "destructive" });
     } else {
+      // Store phone number in profile after signup
+      if (phoneNumber.trim()) {
+        try {
+          const { data: { user: newUser } } = await supabase.auth.getUser();
+          if (newUser) {
+            await supabase.from("profiles").update({ phone_number: phoneNumber.trim() } as any).eq("user_id", newUser.id);
+            // Send welcome SMS
+            await supabase.functions.invoke("send-sms", {
+              body: { phone_number: phoneNumber.trim(), message: `Welcome to MediBrief, ${fullName}! Your AI health assistant is ready. Track symptoms, analyze reports, and manage medications all in one place.`, type: "welcome" },
+            });
+          }
+        } catch (e) { console.error("Phone save/SMS error:", e); }
+      }
       toast({ title: "Account Created!", description: "Welcome to MediBrief. You're now signed in." });
       navigate("/dashboard");
     }
@@ -147,6 +161,14 @@ const Signup = () => {
                 <Input id="email" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} className="pl-10 h-11" disabled={loading} />
               </div>
               {errors.email && <p className="text-sm text-destructive">{errors.email}</p>}
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone">Phone Number <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <div className="relative">
+                <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input id="phone" type="tel" placeholder="+91 9876543210" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="pl-10 h-11" disabled={loading} />
+              </div>
+              <p className="text-xs text-muted-foreground">For medication reminder SMS notifications</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
