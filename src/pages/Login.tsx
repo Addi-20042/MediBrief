@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,16 @@ const Login = () => {
     if (error) {
       toast({ title: "Login Failed", description: error.message, variant: "destructive" });
     } else {
+      // Send login SMS notification
+      try {
+        const { data: profileData } = await supabase.from("profiles").select("phone_number, full_name").eq("user_id", (await supabase.auth.getUser()).data.user?.id || "").maybeSingle();
+        const phone = (profileData as any)?.phone_number;
+        if (phone) {
+          await supabase.functions.invoke("send-sms", {
+            body: { phone_number: phone, message: `MediBrief: Hi ${profileData?.full_name || "there"}! You have successfully logged in at ${new Date().toLocaleString()}. If this wasn't you, please secure your account immediately.`, type: "login" },
+          });
+        }
+      } catch (e) { console.error("Login SMS error:", e); }
       toast({ title: "Welcome back!", description: "You have successfully signed in." });
       navigate("/dashboard");
     }
