@@ -13,7 +13,7 @@ const Footer = () => {
                 <Activity className="h-5 w-5 text-primary-foreground" />
               </div>
               <span className="text-xl font-bold text-foreground">
-                Medical<span className="text-primary">AI</span>
+                Medi<span className="text-primary">Brief</span>
               </span>
             </Link>
             <p className="text-sm text-muted-foreground max-w-md">
@@ -61,7 +61,7 @@ const Footer = () => {
 
         <div className="border-t border-border mt-8 pt-8 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Medical AI. All rights reserved.
+            © {new Date().getFullYear()} MediBrief. All rights reserved.
           </p>
           <p className="text-sm text-muted-foreground flex items-center gap-1">
             Made with <Heart className="h-4 w-4 text-destructive fill-destructive" /> for better health

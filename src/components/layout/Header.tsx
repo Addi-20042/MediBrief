@@ -60,7 +60,7 @@ const Header = () => {
             <Activity className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="text-lg font-bold hidden sm:block">
-            Medical<span className="text-primary">AI</span>
+            Medi<span className="text-primary">Brief</span>
           </span>
         </Link>
 

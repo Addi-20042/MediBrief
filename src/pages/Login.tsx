@@ -75,7 +75,7 @@ const Login = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
               <Activity className="h-7 w-7" />
             </div>
-            <span className="text-3xl font-bold">MedicalAI</span>
+            <span className="text-3xl font-bold">MediBrief</span>
           </div>
           <h2 className="text-3xl font-bold mb-4 leading-tight">Your personal AI health companion</h2>
           <p className="text-primary-foreground/80 text-lg mb-10">
@@ -107,13 +107,13 @@ const Login = () => {
               <Activity className="h-6 w-6 text-primary-foreground" />
             </div>
             <span className="text-2xl font-bold text-foreground">
-              Medical<span className="text-primary">AI</span>
+              Medi<span className="text-primary">Brief</span>
             </span>
           </Link>
 
           <div className="mb-8 text-center lg:text-left">
             <h1 className="text-2xl font-bold text-foreground">Welcome Back</h1>
-            <p className="text-muted-foreground mt-1">Sign in to continue to Medical AI</p>
+            <p className="text-muted-foreground mt-1">Sign in to continue to MediBrief</p>
           </div>
 
           {/* Social Login */}

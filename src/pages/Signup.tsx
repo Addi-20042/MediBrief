@@ -54,7 +54,7 @@ const Signup = () => {
     if (error) {
       toast({ title: "Signup Failed", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Account Created!", description: "Welcome to Medical AI. You're now signed in." });
+      toast({ title: "Account Created!", description: "Welcome to MediBrief. You're now signed in." });
       navigate("/dashboard");
     }
   };
@@ -76,11 +76,11 @@ const Signup = () => {
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-white/20 backdrop-blur-sm">
               <Activity className="h-7 w-7" />
             </div>
-            <span className="text-3xl font-bold">MedicalAI</span>
+            <span className="text-3xl font-bold">MediBrief</span>
           </div>
           <h2 className="text-3xl font-bold mb-4 leading-tight">Start your health journey today</h2>
           <p className="text-primary-foreground/80 text-lg mb-10">
-            Join thousands of users who trust Medical AI for personalized health insights.
+            Join thousands of users who trust MediBrief for personalized health insights.
           </p>
           <div className="space-y-5">
             {[
@@ -108,13 +108,13 @@ const Signup = () => {
               <Activity className="h-6 w-6 text-primary-foreground" />
             </div>
             <span className="text-2xl font-bold text-foreground">
-              Medical<span className="text-primary">AI</span>
+              Medi<span className="text-primary">Brief</span>
             </span>
           </Link>
 
           <div className="mb-8 text-center lg:text-left">
             <h1 className="text-2xl font-bold text-foreground">Create Account</h1>
-            <p className="text-muted-foreground mt-1">Get started with Medical AI today</p>
+            <p className="text-muted-foreground mt-1">Get started with MediBrief today</p>
           </div>
 
           {/* Social Signup */}
