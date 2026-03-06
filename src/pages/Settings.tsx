@@ -15,8 +15,9 @@ import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerCo
 import SettingsSkeleton from "@/components/skeletons/SettingsSkeleton";
 import {
   Settings as SettingsIcon, User, Bell, Shield, Save, LogOut,
-  Trash2, Sun, Moon, Monitor, Palette, Loader2, Phone,
+  Trash2, Sun, Moon, Monitor, Palette, Loader2, Phone, BellRing,
 } from "lucide-react";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "next-themes";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
@@ -38,8 +39,8 @@ const Settings = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
-  const [pushNotifications, setPushNotifications] = useState(false);
   const { user, signOut } = useAuth();
+  const { supported: pushSupported, permission: pushPermission, requestPermission } = usePushNotifications();
   const navigate = useNavigate();
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
@@ -145,8 +146,30 @@ const Settings = () => {
                     </div>
                     <Separator />
                     <div className="flex items-center justify-between">
-                      <div className="space-y-0.5"><Label>Push Notifications</Label><p className="text-sm text-muted-foreground">Get browser notifications for important updates</p></div>
-                      <Switch checked={pushNotifications} onCheckedChange={setPushNotifications} />
+                      <div className="space-y-0.5">
+                        <Label className="flex items-center gap-2">
+                          <BellRing className="h-4 w-4" />
+                          Push Notifications
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          {pushPermission === "granted"
+                            ? "✅ Enabled — you'll get medication reminders"
+                            : pushSupported
+                            ? "Get browser notifications for medication reminders"
+                            : "Not supported in this browser"}
+                        </p>
+                      </div>
+                      {pushSupported && pushPermission !== "granted" ? (
+                        <Button size="sm" variant="outline" onClick={async () => {
+                          const granted = await requestPermission();
+                          if (granted) toast({ title: "Notifications enabled!", description: "You'll receive medication reminders." });
+                          else toast({ title: "Permission denied", description: "Enable notifications in browser settings.", variant: "destructive" });
+                        }}>Enable</Button>
+                      ) : (
+                        <Badge variant={pushPermission === "granted" ? "default" : "secondary"}>
+                          {pushPermission === "granted" ? "Active" : "Off"}
+                        </Badge>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
