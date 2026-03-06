@@ -31,7 +31,7 @@ Deno.serve(async (req) => {
     // Get all active medication reminders
     const { data: reminders, error: remindersError } = await supabase
       .from("medication_reminders")
-      .select("*, profiles!inner(phone_number, full_name)")
+      .select("*")
       .eq("is_active", true)
       .lte("start_date", today);
 
@@ -75,14 +75,20 @@ Deno.serve(async (req) => {
 
       if (logs && logs.length > 0) continue;
 
-      // Get phone number from the joined profile
-      const phone = (reminder as any).profiles?.phone_number;
+      // Get phone number from profile
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("phone_number, full_name")
+        .eq("user_id", reminder.user_id)
+        .maybeSingle();
+
+      const phone = profile?.phone_number;
       if (!phone || !FAST2SMS_API_KEY) continue;
 
       const cleanNumber = phone.replace(/\D/g, "").replace(/^91/, "");
       if (cleanNumber.length !== 10) continue;
 
-      const patientName = (reminder as any).profiles?.full_name || "there";
+      const patientName = profile?.full_name || "there";
       const message = `MediBrief Reminder: Hi ${patientName}! Time to take ${reminder.medication_name} (${reminder.dosage}). Stay healthy! 💊`;
 
       try {
