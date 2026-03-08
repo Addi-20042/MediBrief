@@ -232,6 +232,7 @@ const UploadReport = () => {
   const clearFile = () => {
     setFileName("");
     setReportText("");
+    setPdfBase64(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
