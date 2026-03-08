@@ -249,7 +249,6 @@ const Dashboard = () => {
                 </Card>
               </motion.div>
             )}
-            </motion.div>
 
             {/* Stats Grid */}
             <StaggerContainer className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8" staggerDelay={0.08}>
