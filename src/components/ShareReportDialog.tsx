@@ -79,9 +79,21 @@ const ShareReportDialog = ({ reportData, trigger }: ShareReportDialogProps) => {
       }, 2000);
     } catch (err: any) {
       console.error("Error sending email:", err);
+      
+      // Parse edge function error response
+      let errorMessage = "There was an error sending the report. Please try again.";
+      try {
+        if (err?.context?.body) {
+          const body = typeof err.context.body === 'string' ? JSON.parse(err.context.body) : err.context.body;
+          if (body?.error) errorMessage = body.error;
+        } else if (err?.message) {
+          errorMessage = err.message;
+        }
+      } catch {}
+      
       toast({
         title: "Failed to send",
-        description: err.message || "There was an error sending the report. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

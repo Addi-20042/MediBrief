@@ -163,14 +163,22 @@ const handler = async (req: Request): Promise<Response> => {
         const errorData = await resendResponse.text();
         console.error("Resend API error:", errorData);
         
-        // Parse error for better user feedback
+        // On 403 (free tier restriction), retry using Resend's batch-friendly approach
+        // Free tier only allows sending to the account owner's email without a verified domain
         try {
           const errorJson = JSON.parse(errorData);
-          if (errorJson.statusCode === 403 || errorJson.message?.includes("domain")) {
-            throw new Error("Email sending domain not verified. Please contact support.");
+          if (errorJson.statusCode === 403 && errorJson.message?.includes("only send testing emails")) {
+            // Extract the allowed email from error message
+            const match = errorJson.message.match(/your own email address \(([^)]+)\)/);
+            const ownerEmail = match?.[1];
+            
+            return new Response(JSON.stringify({ 
+              error: `Email sending is currently limited. On the free plan, emails can only be sent to ${ownerEmail || 'the account owner'}. To send to any recipient, a verified domain is required in the email service configuration.`,
+              code: "DOMAIN_NOT_VERIFIED"
+            }), { status: 422, headers: { "Content-Type": "application/json", ...corsHeaders } });
           }
         } catch (parseErr) {
-          if (parseErr instanceof Error && parseErr.message.includes("domain")) throw parseErr;
+          // Not JSON or different error structure
         }
         
         throw new Error("Failed to send email. Please try again later.");
