@@ -26,19 +26,6 @@ import {
   Droplets,
   UserCircle,
 } from "lucide-react";
-  Activity,
-  Heart,
-  TrendingUp,
-  Calendar,
-  Stethoscope,
-  FileText,
-  AlertCircle,
-  CheckCircle,
-  ArrowRight,
-  Pill,
-  Footprints,
-  Droplets,
-} from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 
 interface Prediction {
