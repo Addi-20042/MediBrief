@@ -327,7 +327,7 @@ const UploadReport = () => {
                     <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                     <p className="font-medium mb-1">Click to upload or drag and drop</p>
                     <p className="text-sm text-muted-foreground">
-                      Supports TXT and PDF files
+                      Supports PDF, images (JPG, PNG), and TXT files
                     </p>
                   </>
                 )}
