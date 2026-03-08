@@ -123,6 +123,12 @@ const Header = () => {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48 bg-popover border">
                 <DropdownMenuItem asChild>
+                  <Link to="/profile" className="flex items-center gap-2 cursor-pointer">
+                    <User className="h-4 w-4" />
+                    My Profile
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild>
                   <Link to="/dashboard" className="flex items-center gap-2 cursor-pointer">
                     <LayoutDashboard className="h-4 w-4" />
                     Dashboard

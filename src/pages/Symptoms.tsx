@@ -59,7 +59,32 @@ const Symptoms = () => {
     setLoading(true);
     setResult(null);
     try {
-      const response = await supabase.functions.invoke("analyze-symptoms", { body: { symptoms: symptoms.trim() } });
+      // Fetch user health profile if logged in
+      let healthContext = "";
+      if (user) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (profile) {
+          const p = profile as any;
+          const parts: string[] = [];
+          if (p.date_of_birth) {
+            const age = Math.floor((Date.now() - new Date(p.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
+            parts.push(`Age: ${age}`);
+          }
+          if (p.gender) parts.push(`Gender: ${p.gender}`);
+          if (p.blood_type) parts.push(`Blood Type: ${p.blood_type}`);
+          if (p.height_cm) parts.push(`Height: ${p.height_cm}cm`);
+          if (p.weight_kg) parts.push(`Weight: ${p.weight_kg}kg`);
+          if (p.allergies) parts.push(`Known Allergies: ${p.allergies}`);
+          if (p.medical_conditions) parts.push(`Existing Conditions: ${p.medical_conditions}`);
+          if (parts.length > 0) healthContext = `\n\nPatient Profile:\n${parts.join("\n")}`;
+        }
+      }
+
+      const response = await supabase.functions.invoke("analyze-symptoms", { body: { symptoms: symptoms.trim() + healthContext } });
       if (response.error) throw new Error(response.error.message || "Failed to analyze symptoms");
       const data = response.data;
       if (data.error) throw new Error(data.error);
