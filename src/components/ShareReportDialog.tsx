@@ -171,10 +171,10 @@ const ShareReportDialog = ({ reportData, trigger }: ShareReportDialogProps) => {
                   {reportData.summary && <li>• AI-generated summary</li>}
                 </ul>
               </div>
-              <div className="rounded-lg bg-warning/10 border border-warning/20 p-3 text-sm">
-                <p className="font-medium text-warning mb-1">⚠️ Email Limitation</p>
+              <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-sm">
+                <p className="font-medium text-primary mb-1">📧 Email Info</p>
                 <p className="text-muted-foreground">
-                  Without a custom email domain, reports can only be sent to the account owner's email address. For sending to any email, a verified custom domain is required.
+                  The report will be sent from MediBrief's shared email address. The recipient will receive a professionally formatted health report.
                 </p>
               </div>
             </div>
