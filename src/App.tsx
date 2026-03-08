@@ -37,6 +37,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const HealthTracking = lazy(() => import("./pages/HealthTracking"));
 const Emergency = lazy(() => import("./pages/Emergency"));
 const FirstAid = lazy(() => import("./pages/FirstAid"));
+const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
