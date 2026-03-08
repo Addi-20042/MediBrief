@@ -9,6 +9,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { lazy, Suspense, useEffect } from "react";
 import OfflineBanner from "@/components/OfflineBanner";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import RouteErrorBoundary from "@/components/RouteErrorBoundary";
 
 // Skeleton imports
 import DashboardSkeleton from "@/components/skeletons/DashboardSkeleton";
