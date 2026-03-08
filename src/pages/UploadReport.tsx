@@ -64,26 +64,67 @@ const UploadReport = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
+    setPdfBase64(null);
 
     if (file.type === "text/plain") {
       const text = await file.text();
       setReportText(text);
     } else if (file.type === "application/pdf") {
-      toast({
-        title: "PDF Processing",
-        description: "PDF text extraction is simulated. Please paste the report text manually for best results.",
-      });
-      // In a real app, you'd use a PDF parsing library
-      setReportText("Please paste your medical report text here for analysis.");
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        // Convert to base64
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+        setPdfBase64(base64);
+        setReportText(`📄 PDF uploaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)\n\nThe PDF will be processed using AI-powered text extraction when you click Analyze.`);
+        toast({
+          title: "PDF Ready",
+          description: "Your PDF has been loaded. Click 'Analyze Report' to extract and analyze its contents.",
+        });
+      } catch {
+        toast({
+          title: "PDF Error",
+          description: "Could not read the PDF file. Please try again or paste the text manually.",
+          variant: "destructive",
+        });
+      }
+    } else if (file.type.startsWith("image/")) {
+      try {
+        const arrayBuffer = await file.arrayBuffer();
+        const bytes = new Uint8Array(arrayBuffer);
+        let binary = '';
+        for (let i = 0; i < bytes.byteLength; i++) {
+          binary += String.fromCharCode(bytes[i]);
+        }
+        const base64 = btoa(binary);
+        setPdfBase64(base64);
+        setReportText(`🖼️ Image uploaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)\n\nThe image will be processed using AI-powered text extraction when you click Analyze.`);
+        toast({
+          title: "Image Ready",
+          description: "Your image has been loaded. Click 'Analyze Report' to extract and analyze its contents.",
+        });
+      } catch {
+        toast({
+          title: "Image Error",
+          description: "Could not read the image file. Please try again.",
+          variant: "destructive",
+        });
+      }
     } else {
       toast({
         title: "Unsupported File",
-        description: "Please upload a text or PDF file, or paste the report text directly.",
+        description: "Please upload a PDF, image, or text file.",
         variant: "destructive",
       });
     }
@@ -103,10 +144,14 @@ const UploadReport = () => {
     setResult(null);
 
     try {
+      const requestBody = pdfBase64
+        ? { pdfBase64 }
+        : { reportText: reportText.trim() };
+      
       const response = await withRetry(
         () => withTimeout(
-          supabase.functions.invoke("analyze-report", { body: { reportText: reportText.trim() } }),
-          60_000,
+          supabase.functions.invoke("analyze-report", { body: requestBody }),
+          90_000,
           "analyze-report"
         ),
         1,
@@ -187,6 +232,7 @@ const UploadReport = () => {
   const clearFile = () => {
     setFileName("");
     setReportText("");
+    setPdfBase64(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -253,7 +299,7 @@ const UploadReport = () => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".txt,.pdf"
+                  accept=".txt,.pdf,image/*"
                   onChange={handleFileUpload}
                   className="hidden"
                   disabled={loading}
@@ -281,7 +327,7 @@ const UploadReport = () => {
                     <FileUp className="h-10 w-10 text-muted-foreground mx-auto mb-3" />
                     <p className="font-medium mb-1">Click to upload or drag and drop</p>
                     <p className="text-sm text-muted-foreground">
-                      Supports TXT and PDF files
+                      Supports PDF, images (JPG, PNG), and TXT files
                     </p>
                   </>
                 )}
