@@ -6,7 +6,19 @@ import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
+
+// Skeleton imports
+import DashboardSkeleton from "@/components/skeletons/DashboardSkeleton";
+import SymptomsSkeleton from "@/components/skeletons/SymptomsSkeleton";
+import ChatbotSkeleton from "@/components/skeletons/ChatbotSkeleton";
+import LearnSkeleton from "@/components/skeletons/LearnSkeleton";
+import UploadReportSkeleton from "@/components/skeletons/UploadReportSkeleton";
+import EmergencySkeleton from "@/components/skeletons/EmergencySkeleton";
+import HealthTrackingSkeleton from "@/components/skeletons/HealthTrackingSkeleton";
+import HistorySkeleton from "@/components/skeletons/HistorySkeleton";
+import SettingsSkeleton from "@/components/skeletons/SettingsSkeleton";
+import Layout from "@/components/layout/Layout";
 
 // Lazy-loaded pages
 const Index = lazy(() => import("./pages/Index"));
@@ -28,32 +40,43 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient();
 
-const PageFallback = () => null; // Root spinner handles initial load
+// Skeleton wrapper that uses Layout for consistent look
+const SkeletonPage = ({ children }: { children: React.ReactNode }) => (
+  <Layout>{children}</Layout>
+);
 
 const AnimatedRoutes = () => {
   const location = useLocation();
+  
+  // Register service worker for offline caching
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // SW registration failed silently
+      });
+    }
+  }, []);
+
   return (
     <AnimatePresence mode="wait">
-      <Suspense fallback={<PageFallback />}>
-        <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/reset-password" element={<ResetPassword />} />
-          <Route path="/update-password" element={<UpdatePassword />} />
-          <Route path="/symptoms" element={<Symptoms />} />
-          <Route path="/upload" element={<UploadReport />} />
-          <Route path="/chatbot" element={<Chatbot />} />
-          <Route path="/learn" element={<Learn />} />
-          <Route path="/history" element={<History />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/health-tracking" element={<HealthTracking />} />
-          <Route path="/emergency" element={<Emergency />} />
-          <Route path="/first-aid" element={<FirstAid />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Suspense>
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<Suspense fallback={null}><Index /></Suspense>} />
+        <Route path="/login" element={<Suspense fallback={null}><Login /></Suspense>} />
+        <Route path="/signup" element={<Suspense fallback={null}><Signup /></Suspense>} />
+        <Route path="/reset-password" element={<Suspense fallback={null}><ResetPassword /></Suspense>} />
+        <Route path="/update-password" element={<Suspense fallback={null}><UpdatePassword /></Suspense>} />
+        <Route path="/symptoms" element={<Suspense fallback={<SkeletonPage><SymptomsSkeleton /></SkeletonPage>}><Symptoms /></Suspense>} />
+        <Route path="/upload" element={<Suspense fallback={<SkeletonPage><UploadReportSkeleton /></SkeletonPage>}><UploadReport /></Suspense>} />
+        <Route path="/chatbot" element={<Suspense fallback={<SkeletonPage><ChatbotSkeleton /></SkeletonPage>}><Chatbot /></Suspense>} />
+        <Route path="/learn" element={<Suspense fallback={<SkeletonPage><LearnSkeleton /></SkeletonPage>}><Learn /></Suspense>} />
+        <Route path="/history" element={<Suspense fallback={<SkeletonPage><HistorySkeleton /></SkeletonPage>}><History /></Suspense>} />
+        <Route path="/dashboard" element={<Suspense fallback={<SkeletonPage><DashboardSkeleton /></SkeletonPage>}><Dashboard /></Suspense>} />
+        <Route path="/settings" element={<Suspense fallback={<SkeletonPage><SettingsSkeleton /></SkeletonPage>}><Settings /></Suspense>} />
+        <Route path="/health-tracking" element={<Suspense fallback={<SkeletonPage><HealthTrackingSkeleton /></SkeletonPage>}><HealthTracking /></Suspense>} />
+        <Route path="/emergency" element={<Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><Emergency /></Suspense>} />
+        <Route path="/first-aid" element={<Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><FirstAid /></Suspense>} />
+        <Route path="*" element={<Suspense fallback={null}><NotFound /></Suspense>} />
+      </Routes>
     </AnimatePresence>
   );
 };
