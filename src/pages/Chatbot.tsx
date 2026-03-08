@@ -153,7 +153,7 @@ const Chatbot = () => {
         return prev;
       });
       toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to get response", variant: "destructive" });
-    } finally { setIsLoading(false); inputRef.current?.focus(); }
+    } finally { setIsLoading(false); sendingRef.current = false; inputRef.current?.focus(); }
   };
 
   const clearChat = () => {
