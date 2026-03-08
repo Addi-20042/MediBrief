@@ -103,9 +103,13 @@ const UploadReport = () => {
     setResult(null);
 
     try {
-      const response = await withTimeout(
-        supabase.functions.invoke("analyze-report", { body: { reportText: reportText.trim() } }),
-        60_000,
+      const response = await withRetry(
+        () => withTimeout(
+          supabase.functions.invoke("analyze-report", { body: { reportText: reportText.trim() } }),
+          60_000,
+          "analyze-report"
+        ),
+        1,
         "analyze-report"
       );
 
@@ -120,6 +124,7 @@ const UploadReport = () => {
       }
 
       setResult(data);
+      clearReportDraft();
 
       // Save to history if user is logged in
       if (user) {

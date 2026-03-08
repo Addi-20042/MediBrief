@@ -86,15 +86,20 @@ const Symptoms = () => {
         }
       }
 
-      const response = await withTimeout(
-        supabase.functions.invoke("analyze-symptoms", { body: { symptoms: symptoms.trim() + healthContext } }),
-        45_000,
+      const response = await withRetry(
+        () => withTimeout(
+          supabase.functions.invoke("analyze-symptoms", { body: { symptoms: symptoms.trim() + healthContext } }),
+          45_000,
+          "analyze-symptoms"
+        ),
+        1,
         "analyze-symptoms"
       );
       if (response.error) throw new Error(response.error.message || "Failed to analyze symptoms");
       const data = response.data;
       if (data.error) throw new Error(data.error);
       setResult(data);
+      clearSymptomsDraft();
       if (user) {
         await supabase.from("predictions").insert({
           user_id: user.id, prediction_type: "symptom", input_data: symptoms,
