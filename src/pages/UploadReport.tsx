@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { withTimeout } from "@/lib/fetchWithTimeout";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
