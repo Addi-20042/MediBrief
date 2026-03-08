@@ -72,15 +72,38 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      const { data, error } = await supabase
-        .from("predictions")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
+      const today = format(new Date(), "yyyy-MM-dd");
 
-      if (error) throw error;
+      // Run ALL queries in parallel for maximum speed
+      const [predictionsRes, metricsRes, remindersRes, logsRes] = await Promise.all([
+        supabase
+          .from("predictions")
+          .select("*")
+          .eq("user_id", user.id)
+          .order("created_at", { ascending: false })
+          .limit(50),
+        supabase
+          .from("health_metrics")
+          .select("steps,water_intake")
+          .eq("user_id", user.id)
+          .eq("metric_date", today)
+          .maybeSingle(),
+        supabase
+          .from("medication_reminders")
+          .select("id")
+          .eq("user_id", user.id)
+          .eq("is_active", true),
+        supabase
+          .from("medication_logs")
+          .select("reminder_id")
+          .eq("user_id", user.id)
+          .gte("taken_at", `${today}T00:00:00`)
+          .lte("taken_at", `${today}T23:59:59`),
+      ]);
 
-      const allPredictions = data || [];
+      if (predictionsRes.error) throw predictionsRes.error;
+
+      const allPredictions = predictionsRes.data || [];
       setPredictions(allPredictions);
 
       const now = new Date();
@@ -104,9 +127,7 @@ const Dashboard = () => {
         }
       });
 
-      // Health score starts at 100% and decreases based on concerning symptoms
       let healthScore = 100;
-      // Each analysis with high-urgency conditions reduces score
       allPredictions.forEach((p) => {
         if (p.predicted_diseases && Array.isArray(p.predicted_diseases)) {
           p.predicted_diseases.forEach((disease: any) => {
@@ -122,7 +143,6 @@ const Dashboard = () => {
           });
         }
       });
-      // Bonus for recent activity (being proactive about health)
       if (thisMonthPredictions.length > 0) healthScore += 5;
       healthScore = Math.max(10, Math.min(100, healthScore));
 
@@ -135,34 +155,13 @@ const Dashboard = () => {
         healthScore: Math.round(healthScore),
       });
 
-      const today = format(new Date(), "yyyy-MM-dd");
-      const { data: metricsData } = await supabase
-        .from("health_metrics")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("metric_date", today)
-        .maybeSingle();
-
-      const { data: reminders } = await supabase
-        .from("medication_reminders")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("is_active", true);
-
-      const { data: logs } = await supabase
-        .from("medication_logs")
-        .select("reminder_id")
-        .eq("user_id", user.id)
-        .gte("taken_at", `${today}T00:00:00`)
-        .lte("taken_at", `${today}T23:59:59`);
-
-      const uniqueLoggedMeds = new Set(logs?.map(l => l.reminder_id) || []);
+      const uniqueLoggedMeds = new Set(logsRes.data?.map(l => l.reminder_id) || []);
 
       setTodayMetrics({
-        steps: metricsData?.steps || null,
-        water_intake: metricsData?.water_intake || null,
+        steps: metricsRes.data?.steps || null,
+        water_intake: metricsRes.data?.water_intake || null,
         medications_logged: uniqueLoggedMeds.size,
-        medications_total: reminders?.length || 0,
+        medications_total: remindersRes.data?.length || 0,
       });
     } catch (error) {
       console.error("Error fetching data:", error);
