@@ -44,6 +44,7 @@ export default defineConfig(({ mode }) => ({
       'react-dom',
       'react-router-dom',
       'framer-motion',
+      'next-themes',
       '@supabase/supabase-js',
     ],
   },
