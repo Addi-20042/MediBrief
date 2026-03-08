@@ -39,7 +39,16 @@ const Emergency = lazy(() => import("./pages/Emergency"));
 const FirstAid = lazy(() => import("./pages/FirstAid"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 5 * 60 * 1000,
+      gcTime: 10 * 60 * 1000,
+      refetchOnWindowFocus: false,
+      retry: 1,
+    },
+  },
+});
 
 // Skeleton wrapper that uses Layout for consistent look
 const SkeletonPage = ({ children }: { children: React.ReactNode }) => (

@@ -116,13 +116,15 @@ const Emergency = () => {
                         </div>
                         <p className="text-xs text-muted-foreground mb-2">{contact.description}</p>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-lg">{contact.number}</span>
+                          <a href={`tel:${contact.number}`} className="font-mono font-bold text-lg text-primary hover:underline">{contact.number}</a>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopyNumber(contact.number)}>
                             {copiedNumber === contact.number ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                           </Button>
-                          <Button size="sm" className="ml-auto h-7" onClick={() => handleCallNumber(contact.number)}>
-                            <Phone className="h-3.5 w-3.5 mr-1" />Call
-                          </Button>
+                          <a href={`tel:${contact.number}`} className="ml-auto">
+                            <Button size="sm" className="h-7">
+                              <Phone className="h-3.5 w-3.5 mr-1" />Call
+                            </Button>
+                          </a>
                         </div>
                       </div>
                     </div>
@@ -137,11 +139,11 @@ const Emergency = () => {
               <CardHeader className="pb-3"><CardTitle className="text-base">International Emergency Numbers</CardTitle></CardHeader>
               <CardContent>
                 <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
-                  {[{ country: "USA", number: "911" }, { country: "UK", number: "999" }, { country: "EU", number: "112" }, { country: "Australia", number: "000" }].map((item) => (
-                    <div key={item.country} className="flex justify-between p-2 rounded bg-muted/50 text-sm hover:bg-muted/70 transition-colors">
+                   {[{ country: "USA", number: "911" }, { country: "UK", number: "999" }, { country: "EU", number: "112" }, { country: "Australia", number: "000" }].map((item) => (
+                    <a key={item.country} href={`tel:${item.number}`} className="flex justify-between p-2 rounded bg-muted/50 text-sm hover:bg-muted/70 transition-colors">
                       <span>{item.country}</span>
                       <span className="font-mono font-bold text-primary">{item.number}</span>
-                    </div>
+                    </a>
                   ))}
                 </div>
               </CardContent>
