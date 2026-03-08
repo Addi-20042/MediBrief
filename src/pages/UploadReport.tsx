@@ -144,10 +144,14 @@ const UploadReport = () => {
     setResult(null);
 
     try {
+      const requestBody = pdfBase64
+        ? { pdfBase64 }
+        : { reportText: reportText.trim() };
+      
       const response = await withRetry(
         () => withTimeout(
-          supabase.functions.invoke("analyze-report", { body: { reportText: reportText.trim() } }),
-          60_000,
+          supabase.functions.invoke("analyze-report", { body: requestBody }),
+          90_000,
           "analyze-report"
         ),
         1,
