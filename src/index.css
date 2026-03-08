@@ -231,7 +231,12 @@
   }
 
   .metric-card {
-    @apply relative overflow-hidden rounded-xl border border-border/50 bg-card p-6 transition-all duration-300 hover:shadow-lg hover:border-primary/30;
+    @apply relative overflow-hidden rounded-xl border border-border/50 bg-card p-6 hover:shadow-lg hover:border-primary/30;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease !important;
+  }
+
+  .metric-card:hover {
+    transform: translateY(-2px);
   }
 
   .metric-card::before {
