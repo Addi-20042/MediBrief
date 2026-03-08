@@ -63,16 +63,6 @@ const Login = () => {
         }
         toast({ title: "Login Failed", description: message, variant: "destructive" });
       } else {
-        // Send login SMS notification (non-blocking)
-        try {
-          const { data: profileData } = await supabase.from("profiles").select("phone_number, full_name").eq("user_id", (await supabase.auth.getUser()).data.user?.id || "").maybeSingle();
-          const phone = (profileData as any)?.phone_number;
-          if (phone) {
-            supabase.functions.invoke("send-sms", {
-              body: { phone_number: phone, message: `MediBrief: Hi ${profileData?.full_name || "there"}! You have successfully logged in at ${new Date().toLocaleString()}. If this wasn't you, please secure your account immediately.`, type: "login" },
-            }).catch(() => {});
-          }
-        } catch (_) {}
         toast({ title: "Welcome back!", description: "You have successfully signed in." });
         navigate("/dashboard");
       }

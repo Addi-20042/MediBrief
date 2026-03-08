@@ -70,9 +70,6 @@ const Signup = () => {
             const { data: { user: newUser } } = await supabase.auth.getUser();
             if (newUser) {
               await supabase.from("profiles").update({ phone_number: phoneNumber.trim() } as any).eq("user_id", newUser.id);
-              supabase.functions.invoke("send-sms", {
-                body: { phone_number: phoneNumber.trim(), message: `Welcome to MediBrief, ${fullName}! Your AI health assistant is ready. Track symptoms, analyze reports, and manage medications all in one place.`, type: "welcome" },
-              }).catch(() => {});
             }
           } catch (_) {}
         }
