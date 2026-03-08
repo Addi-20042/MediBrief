@@ -84,7 +84,11 @@ const Symptoms = () => {
         }
       }
 
-      const response = await supabase.functions.invoke("analyze-symptoms", { body: { symptoms: symptoms.trim() + healthContext } });
+      const response = await withTimeout(
+        supabase.functions.invoke("analyze-symptoms", { body: { symptoms: symptoms.trim() + healthContext } }),
+        45_000,
+        "analyze-symptoms"
+      );
       if (response.error) throw new Error(response.error.message || "Failed to analyze symptoms");
       const data = response.data;
       if (data.error) throw new Error(data.error);

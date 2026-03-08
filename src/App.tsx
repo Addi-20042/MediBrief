@@ -82,17 +82,17 @@ const AnimatedRoutes = () => {
         <Route path="/signup" element={<Suspense fallback={null}><Signup /></Suspense>} />
         <Route path="/reset-password" element={<Suspense fallback={null}><ResetPassword /></Suspense>} />
         <Route path="/update-password" element={<Suspense fallback={null}><UpdatePassword /></Suspense>} />
-        <Route path="/symptoms" element={<Suspense fallback={<SkeletonPage><SymptomsSkeleton /></SkeletonPage>}><Symptoms /></Suspense>} />
-        <Route path="/upload" element={<Suspense fallback={<SkeletonPage><UploadReportSkeleton /></SkeletonPage>}><UploadReport /></Suspense>} />
-        <Route path="/chatbot" element={<Suspense fallback={<SkeletonPage><ChatbotSkeleton /></SkeletonPage>}><Chatbot /></Suspense>} />
-        <Route path="/learn" element={<Suspense fallback={<SkeletonPage><LearnSkeleton /></SkeletonPage>}><Learn /></Suspense>} />
-        <Route path="/history" element={<Suspense fallback={<SkeletonPage><HistorySkeleton /></SkeletonPage>}><History /></Suspense>} />
-        <Route path="/dashboard" element={<Suspense fallback={<SkeletonPage><DashboardSkeleton /></SkeletonPage>}><Dashboard /></Suspense>} />
-        <Route path="/settings" element={<Suspense fallback={<SkeletonPage><SettingsSkeleton /></SkeletonPage>}><Settings /></Suspense>} />
-        <Route path="/profile" element={<Suspense fallback={<SkeletonPage><SettingsSkeleton /></SkeletonPage>}><Profile /></Suspense>} />
-        <Route path="/health-tracking" element={<Suspense fallback={<SkeletonPage><HealthTrackingSkeleton /></SkeletonPage>}><HealthTracking /></Suspense>} />
-        <Route path="/emergency" element={<Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><Emergency /></Suspense>} />
-        <Route path="/first-aid" element={<Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><FirstAid /></Suspense>} />
+        <Route path="/symptoms" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><SymptomsSkeleton /></SkeletonPage>}><Symptoms /></Suspense></RouteErrorBoundary>} />
+        <Route path="/upload" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><UploadReportSkeleton /></SkeletonPage>}><UploadReport /></Suspense></RouteErrorBoundary>} />
+        <Route path="/chatbot" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><ChatbotSkeleton /></SkeletonPage>}><Chatbot /></Suspense></RouteErrorBoundary>} />
+        <Route path="/learn" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><LearnSkeleton /></SkeletonPage>}><Learn /></Suspense></RouteErrorBoundary>} />
+        <Route path="/history" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><HistorySkeleton /></SkeletonPage>}><History /></Suspense></RouteErrorBoundary>} />
+        <Route path="/dashboard" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><DashboardSkeleton /></SkeletonPage>}><Dashboard /></Suspense></RouteErrorBoundary>} />
+        <Route path="/settings" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><SettingsSkeleton /></SkeletonPage>}><Settings /></Suspense></RouteErrorBoundary>} />
+        <Route path="/profile" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><SettingsSkeleton /></SkeletonPage>}><Profile /></Suspense></RouteErrorBoundary>} />
+        <Route path="/health-tracking" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><HealthTrackingSkeleton /></SkeletonPage>}><HealthTracking /></Suspense></RouteErrorBoundary>} />
+        <Route path="/emergency" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><Emergency /></Suspense></RouteErrorBoundary>} />
+        <Route path="/first-aid" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><FirstAid /></Suspense></RouteErrorBoundary>} />
         <Route path="*" element={<Suspense fallback={null}><NotFound /></Suspense>} />
       </Routes>
     </AnimatePresence>

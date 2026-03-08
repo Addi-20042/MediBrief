@@ -101,9 +101,11 @@ const UploadReport = () => {
     setResult(null);
 
     try {
-      const response = await supabase.functions.invoke("analyze-report", {
-        body: { reportText: reportText.trim() },
-      });
+      const response = await withTimeout(
+        supabase.functions.invoke("analyze-report", { body: { reportText: reportText.trim() } }),
+        60_000,
+        "analyze-report"
+      );
 
       if (response.error) {
         throw new Error(response.error.message || "Failed to analyze report");
