@@ -17,11 +17,12 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": r("./src"),
-      react: r("./node_modules/react/index.js"),
-      "react/jsx-runtime": r("./node_modules/react/jsx-runtime.js"),
-      "react/jsx-dev-runtime": r("./node_modules/react/jsx-dev-runtime.js"),
-      "react-dom": r("./node_modules/react-dom/index.js"),
-      "react-dom/client": r("./node_modules/react-dom/client.js"),
+      // More specific aliases MUST come first
+      "react/jsx-runtime": r("./node_modules/react/jsx-runtime"),
+      "react/jsx-dev-runtime": r("./node_modules/react/jsx-dev-runtime"),
+      "react-dom/client": r("./node_modules/react-dom/client"),
+      react: r("./node_modules/react"),
+      "react-dom": r("./node_modules/react-dom"),
     },
     dedupe: [
       "react",
@@ -33,7 +34,6 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   build: {
-    // Optimize chunk splitting for faster initial load
     rollupOptions: {
       output: {
         manualChunks: {
@@ -44,14 +44,10 @@ export default defineConfig(({ mode }) => ({
         },
       },
     },
-    // Increase chunk warning limit
     chunkSizeWarningLimit: 600,
-    // Enable minification
     minify: "esbuild",
-    // Target modern browsers for smaller output
     target: "es2020",
   },
-  // Optimize dependency pre-bundling
   optimizeDeps: {
     force: mode === "development",
     include: [
