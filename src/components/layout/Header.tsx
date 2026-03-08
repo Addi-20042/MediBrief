@@ -178,9 +178,11 @@ const Header = () => {
       </div>
 
       {/* Mobile Menu - Simplified */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-background">
-          <nav className="container py-3 flex flex-col gap-1">
+      <div className={cn(
+        "md:hidden border-t border-border bg-background overflow-hidden transition-all duration-300 ease-out",
+        mobileMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 border-t-0"
+      )}>
+        <nav className="container py-3 flex flex-col gap-1">
             {mainNavLinks.map((link) => (
               <Link
                 key={link.href}
