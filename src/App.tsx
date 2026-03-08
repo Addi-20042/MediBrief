@@ -53,7 +53,7 @@ const queryClient = new QueryClient({
 
 // Skeleton wrapper that uses Layout for consistent look
 const SkeletonPage = ({ children }: { children: React.ReactNode }) => (
-  <Layout>{children}</Layout>
+  <>{children}</>
 );
 
 const AnimatedRoutes = () => {
