@@ -299,7 +299,7 @@ const UploadReport = () => {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept=".txt,.pdf"
+                  accept=".txt,.pdf,image/*"
                   onChange={handleFileUpload}
                   className="hidden"
                   disabled={loading}
