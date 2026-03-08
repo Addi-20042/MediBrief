@@ -7,6 +7,7 @@ import { ThemeProvider } from "next-themes";
 import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { lazy, Suspense, useEffect } from "react";
+import OfflineBanner from "@/components/OfflineBanner";
 
 // Skeleton imports
 import DashboardSkeleton from "@/components/skeletons/DashboardSkeleton";
