@@ -17,21 +17,9 @@ export default defineConfig(({ mode }) => ({
   resolve: {
     alias: {
       "@": r("./src"),
-      // More specific aliases MUST come first
-      "react/jsx-runtime": r("./node_modules/react/jsx-runtime"),
-      "react/jsx-dev-runtime": r("./node_modules/react/jsx-dev-runtime"),
-      "react-dom/client": r("./node_modules/react-dom/client"),
-      react: r("./node_modules/react"),
-      "react-dom": r("./node_modules/react-dom"),
     },
-    dedupe: [
-      "react",
-      "react-dom",
-      "react-dom/client",
-      "react/jsx-runtime",
-      "react/jsx-dev-runtime",
-      "scheduler",
-    ],
+    // Keep a single React instance across app + dependencies
+    dedupe: ["react", "react-dom"],
   },
   build: {
     rollupOptions: {
