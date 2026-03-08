@@ -229,11 +229,39 @@ const Dashboard = () => {
             >
               <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
                 <Heart className="h-8 w-8 text-primary" />
-                Health Dashboard
+                {profileName ? `Welcome back, ${profileName.split(" ")[0]}!` : "Health Dashboard"}
               </h1>
               <p className="text-muted-foreground">
                 Track your health analyses and monitor your wellness journey
               </p>
+            </motion.div>
+
+            {/* Profile completion prompt */}
+            {!profileComplete && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="mb-6"
+              >
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-3">
+                        <UserCircle className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="font-medium">Complete your health profile</p>
+                          <p className="text-sm text-muted-foreground">Add allergies, blood type & conditions for personalized AI insights</p>
+                        </div>
+                      </div>
+                      <Button size="sm" onClick={() => navigate("/profile")} className="gradient-primary text-primary-foreground">
+                        Complete Profile
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
             </motion.div>
 
             {/* Stats Grid */}
