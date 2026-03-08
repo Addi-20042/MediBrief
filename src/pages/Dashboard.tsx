@@ -77,7 +77,7 @@ const Dashboard = () => {
       const today = format(new Date(), "yyyy-MM-dd");
 
       // Run ALL queries in parallel for maximum speed
-      const [predictionsRes, metricsRes, remindersRes, logsRes] = await Promise.all([
+      const [predictionsRes, metricsRes, remindersRes, logsRes, profileRes] = await Promise.all([
         supabase
           .from("predictions")
           .select("*")
@@ -101,7 +101,19 @@ const Dashboard = () => {
           .eq("user_id", user.id)
           .gte("taken_at", `${today}T00:00:00`)
           .lte("taken_at", `${today}T23:59:59`),
+        supabase
+          .from("profiles")
+          .select("full_name, blood_type, allergies, medical_conditions")
+          .eq("user_id", user.id)
+          .maybeSingle(),
       ]);
+
+      // Set profile info
+      if (profileRes.data) {
+        const p = profileRes.data as any;
+        setProfileName(p.full_name);
+        setProfileComplete(!!(p.blood_type || p.allergies || p.medical_conditions));
+      }
 
       if (predictionsRes.error) throw predictionsRes.error;
 
