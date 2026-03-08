@@ -59,13 +59,25 @@ const SkeletonPage = ({ children }: { children: React.ReactNode }) => (
 const AnimatedRoutes = () => {
   const location = useLocation();
   
-  // Register service worker for offline caching
+  // Register service worker only in production to avoid stale dev cache/runtime issues
   useEffect(() => {
-    if ('serviceWorker' in navigator) {
+    if (!('serviceWorker' in navigator)) return;
+
+    if (import.meta.env.PROD) {
       navigator.serviceWorker.register('/sw.js').catch(() => {
         // SW registration failed silently
       });
+      return;
     }
+
+    // In development, ensure stale service workers don't interfere with Vite modules
+    navigator.serviceWorker.getRegistrations().then((registrations) => {
+      registrations.forEach((registration) => {
+        registration.unregister();
+      });
+    }).catch(() => {
+      // Ignore cleanup errors in dev
+    });
   }, []);
 
   return (
