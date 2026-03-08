@@ -110,26 +110,15 @@ const Settings = () => {
                     <CardDescription>Update your personal information</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" type="email" value={user?.email || ""} disabled className="bg-muted" />
-                      <p className="text-xs text-muted-foreground">Your email address cannot be changed</p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="fullName">Full Name</Label>
-                      <Input id="fullName" type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Enter your full name" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="phoneNumber">Phone Number</Label>
-                      <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        <Input id="phoneNumber" type="tel" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} placeholder="+91 9876543210" className="pl-10" />
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p className="font-medium">{fullName || "No name set"}</p>
+                        <p className="text-sm text-muted-foreground">{user?.email}</p>
                       </div>
-                      <p className="text-xs text-muted-foreground">Used for medication reminder SMS notifications</p>
+                      <Button variant="outline" size="sm" onClick={() => navigate("/profile")}>
+                        <User className="mr-2 h-4 w-4" />Edit Profile
+                      </Button>
                     </div>
-                    <Button onClick={handleSaveProfile} disabled={saving} className="gradient-primary text-primary-foreground">
-                      {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Saving...</> : <><Save className="mr-2 h-4 w-4" />Save Changes</>}
-                    </Button>
                   </CardContent>
                 </Card>
               </StaggerItem>
