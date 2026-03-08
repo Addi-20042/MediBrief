@@ -56,8 +56,8 @@ const Header = () => {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-lg">
       <div className="container flex h-14 items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary">
+        <Link to="/" className="flex items-center gap-2 group" style={{ transition: 'transform 0.2s cubic-bezier(0.22,1,0.36,1)' }}>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
             <Activity className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="text-lg font-bold hidden sm:block">

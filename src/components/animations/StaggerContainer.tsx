@@ -20,24 +20,26 @@ export const staggerContainer = (staggerDelay = 0.08, delayStart = 0.1) => ({
 });
 
 export const staggerItem = {
-  hidden: { opacity: 0, y: 16 },
+  hidden: { opacity: 0, y: 20, filter: "blur(4px)" },
   visible: {
     opacity: 1,
     y: 0,
+    filter: "blur(0px)",
     transition: {
-      duration: 0.4,
+      duration: 0.45,
       ease: [0.22, 1, 0.36, 1] as const,
     },
   },
 };
 
 export const fadeInScale = {
-  hidden: { opacity: 0, scale: 0.95 },
+  hidden: { opacity: 0, scale: 0.92, filter: "blur(4px)" },
   visible: {
     opacity: 1,
     scale: 1,
+    filter: "blur(0px)",
     transition: {
-      duration: 0.35,
+      duration: 0.4,
       ease: [0.22, 1, 0.36, 1] as const,
     },
   },
