@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
-import { withTimeout } from "@/lib/fetchWithTimeout";
+import { withTimeout, withRetry } from "@/lib/fetchWithTimeout";
+import { useFormDraft } from "@/hooks/useFormDraft";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,7 +55,7 @@ interface ReportResult {
 }
 
 const UploadReport = () => {
-  const [reportText, setReportText] = useState("");
+  const [reportText, setReportText, clearReportDraft] = useFormDraft("report-input", "");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReportResult | null>(null);
   const [fileName, setFileName] = useState("");
@@ -102,9 +103,13 @@ const UploadReport = () => {
     setResult(null);
 
     try {
-      const response = await withTimeout(
-        supabase.functions.invoke("analyze-report", { body: { reportText: reportText.trim() } }),
-        60_000,
+      const response = await withRetry(
+        () => withTimeout(
+          supabase.functions.invoke("analyze-report", { body: { reportText: reportText.trim() } }),
+          60_000,
+          "analyze-report"
+        ),
+        1,
         "analyze-report"
       );
 
@@ -119,6 +124,7 @@ const UploadReport = () => {
       }
 
       setResult(data);
+      clearReportDraft();
 
       // Save to history if user is logged in
       if (user) {

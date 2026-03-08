@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { withTimeout } from "@/lib/fetchWithTimeout";
+import { withTimeout, withRetry } from "@/lib/fetchWithTimeout";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,13 +60,17 @@ const Chatbot = () => {
       headers.Authorization = `Bearer ${session.access_token}`;
     }
     
-    const response = await withTimeout(
-      fetch(CHAT_URL, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ messages: userMessages }),
-      }),
-      45_000,
+    const response = await withRetry(
+      () => withTimeout(
+        fetch(CHAT_URL, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ messages: userMessages }),
+        }),
+        45_000,
+        "chat"
+      ),
+      1,
       "chat"
     );
     if (response.status === 429) throw new Error("Rate limit exceeded. Please try again in a moment.");
