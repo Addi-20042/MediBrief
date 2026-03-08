@@ -37,6 +37,7 @@ const Settings = lazy(() => import("./pages/Settings"));
 const HealthTracking = lazy(() => import("./pages/HealthTracking"));
 const Emergency = lazy(() => import("./pages/Emergency"));
 const FirstAid = lazy(() => import("./pages/FirstAid"));
+const Profile = lazy(() => import("./pages/Profile"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -82,6 +83,7 @@ const AnimatedRoutes = () => {
         <Route path="/history" element={<Suspense fallback={<SkeletonPage><HistorySkeleton /></SkeletonPage>}><History /></Suspense>} />
         <Route path="/dashboard" element={<Suspense fallback={<SkeletonPage><DashboardSkeleton /></SkeletonPage>}><Dashboard /></Suspense>} />
         <Route path="/settings" element={<Suspense fallback={<SkeletonPage><SettingsSkeleton /></SkeletonPage>}><Settings /></Suspense>} />
+        <Route path="/profile" element={<Suspense fallback={<SkeletonPage><SettingsSkeleton /></SkeletonPage>}><Profile /></Suspense>} />
         <Route path="/health-tracking" element={<Suspense fallback={<SkeletonPage><HealthTrackingSkeleton /></SkeletonPage>}><HealthTracking /></Suspense>} />
         <Route path="/emergency" element={<Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><Emergency /></Suspense>} />
         <Route path="/first-aid" element={<Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><FirstAid /></Suspense>} />

@@ -207,31 +207,52 @@ export type Database = {
       }
       profiles: {
         Row: {
+          allergies: string | null
           avatar_url: string | null
+          blood_type: string | null
           created_at: string
+          date_of_birth: string | null
           full_name: string | null
+          gender: string | null
+          height_cm: number | null
           id: string
+          medical_conditions: string | null
           phone_number: string | null
           updated_at: string
           user_id: string
+          weight_kg: number | null
         }
         Insert: {
+          allergies?: string | null
           avatar_url?: string | null
+          blood_type?: string | null
           created_at?: string
+          date_of_birth?: string | null
           full_name?: string | null
+          gender?: string | null
+          height_cm?: number | null
           id?: string
+          medical_conditions?: string | null
           phone_number?: string | null
           updated_at?: string
           user_id: string
+          weight_kg?: number | null
         }
         Update: {
+          allergies?: string | null
           avatar_url?: string | null
+          blood_type?: string | null
           created_at?: string
+          date_of_birth?: string | null
           full_name?: string | null
+          gender?: string | null
+          height_cm?: number | null
           id?: string
+          medical_conditions?: string | null
           phone_number?: string | null
           updated_at?: string
           user_id?: string
+          weight_kg?: number | null
         }
         Relationships: []
       }
