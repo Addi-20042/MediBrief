@@ -144,6 +144,8 @@ const Settings = () => {
                         <p className="text-sm text-muted-foreground">
                           {pushPermission === "granted"
                             ? "✅ Enabled — you'll get medication reminders"
+                            : pushPermission === "denied"
+                            ? "Blocked — click the lock icon in your browser's address bar to allow notifications, then refresh"
                             : pushSupported
                             ? "Get browser notifications for medication reminders"
                             : "Not supported in this browser"}
@@ -153,7 +155,7 @@ const Settings = () => {
                         <Button size="sm" variant="outline" onClick={async () => {
                           const granted = await requestPermission();
                           if (granted) toast({ title: "Notifications enabled!", description: "You'll receive medication reminders." });
-                          else toast({ title: "Permission denied", description: "Enable notifications in browser settings.", variant: "destructive" });
+                          else toast({ title: "Permission denied", description: "If you're in a preview, publish the app and try from the published URL. Otherwise, click the lock icon in your address bar to allow notifications.", variant: "destructive" });
                         }}>Enable</Button>
                       ) : (
                         <Badge variant={pushPermission === "granted" ? "default" : "secondary"}>
