@@ -28,7 +28,7 @@ export function useFormDraft(
   const timerRef = useRef<ReturnType<typeof setTimeout>>();
 
   const setValue = useCallback(
-    (val: T) => {
+    (val: string) => {
       setValueState(val);
       clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
