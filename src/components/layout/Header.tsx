@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -55,8 +56,8 @@ const Header = () => {
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-lg">
       <div className="container flex h-14 items-center justify-between">
         {/* Logo */}
-        <Link to="/" className="flex items-center gap-2 group">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary">
+        <Link to="/" className="flex items-center gap-2 group" style={{ transition: 'transform 0.2s cubic-bezier(0.22,1,0.36,1)' }}>
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg gradient-primary transition-transform duration-300 group-hover:scale-110 group-hover:rotate-3">
             <Activity className="h-4 w-4 text-primary-foreground" />
           </div>
           <span className="text-lg font-bold hidden sm:block">
@@ -178,9 +179,11 @@ const Header = () => {
       </div>
 
       {/* Mobile Menu - Simplified */}
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-border bg-background">
-          <nav className="container py-3 flex flex-col gap-1">
+      <div className={cn(
+        "md:hidden border-t border-border bg-background overflow-hidden transition-all duration-300 ease-out",
+        mobileMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 border-t-0"
+      )}>
+        <nav className="container py-3 flex flex-col gap-1">
             {mainNavLinks.map((link) => (
               <Link
                 key={link.href}
@@ -230,7 +233,6 @@ const Header = () => {
             )}
           </nav>
         </div>
-      )}
     </header>
   );
 };

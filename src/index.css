@@ -123,16 +123,42 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "rlig" 1, "calt" 1;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
+  }
+
+  /* Smooth transitions for all interactive elements */
+  a, button, input, textarea, select {
+    transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  /* Smooth scrolling */
+  html {
+    scroll-behavior: smooth;
+  }
+
+  /* Smooth theme transitions for non-interactive elements */
+  .glass-card, .metric-card, .card-hover,
+  [class*="bg-card"], [class*="bg-background"], [class*="bg-muted"],
+  [class*="bg-secondary"], [class*="bg-popover"], [class*="border-"] {
+    transition-property: background-color, border-color, color, fill, stroke, box-shadow;
+    transition-duration: 0.25s;
+    transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
   }
 }
 
 @layer components {
   .glass-card {
     @apply bg-card/80 backdrop-blur-xl border border-border/50 shadow-lg;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1) !important;
+  }
+
+  .glass-card:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-lg);
   }
 
   .gradient-primary {
@@ -179,7 +205,8 @@
   }
 
   .card-hover {
-    @apply transition-all duration-300 hover:shadow-xl hover:scale-[1.02] hover:border-primary/30;
+    @apply hover:shadow-xl hover:scale-[1.02] hover:border-primary/30;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.3s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease !important;
   }
 
   .btn-glow {
@@ -207,7 +234,12 @@
   }
 
   .metric-card {
-    @apply relative overflow-hidden rounded-xl border border-border/50 bg-card p-6 transition-all duration-300 hover:shadow-lg hover:border-primary/30;
+    @apply relative overflow-hidden rounded-xl border border-border/50 bg-card p-6 hover:shadow-lg hover:border-primary/30;
+    transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.3s ease !important;
+  }
+
+  .metric-card:hover {
+    transform: translateY(-2px);
   }
 
   .metric-card::before {
@@ -245,19 +277,23 @@
   from {
     opacity: 0;
     transform: translateY(20px);
+    filter: blur(4px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
+    filter: blur(0);
   }
 }
 
 @keyframes fadeIn {
   from {
     opacity: 0;
+    filter: blur(2px);
   }
   to {
     opacity: 1;
+    filter: blur(0);
   }
 }
 
