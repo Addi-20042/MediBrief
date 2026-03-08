@@ -8,6 +8,7 @@ import { AnimatePresence } from "framer-motion";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { lazy, Suspense, useEffect } from "react";
 import OfflineBanner from "@/components/OfflineBanner";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 // Skeleton imports
 import DashboardSkeleton from "@/components/skeletons/DashboardSkeleton";
@@ -19,7 +20,6 @@ import EmergencySkeleton from "@/components/skeletons/EmergencySkeleton";
 import HealthTrackingSkeleton from "@/components/skeletons/HealthTrackingSkeleton";
 import HistorySkeleton from "@/components/skeletons/HistorySkeleton";
 import SettingsSkeleton from "@/components/skeletons/SettingsSkeleton";
-import Layout from "@/components/layout/Layout";
 
 // Lazy-loaded pages
 const Index = lazy(() => import("./pages/Index"));
@@ -51,37 +51,30 @@ const queryClient = new QueryClient({
   },
 });
 
-// Skeleton wrapper that uses Layout for consistent look
 const SkeletonPage = ({ children }: { children: React.ReactNode }) => (
   <>{children}</>
 );
 
 const AnimatedRoutes = () => {
   const location = useLocation();
-  
-  // Register service worker only in production to avoid stale dev cache/runtime issues
+
+  // Register service worker in production; clean up stale ones in dev
   useEffect(() => {
-    if (!('serviceWorker' in navigator)) return;
+    if (!("serviceWorker" in navigator)) return;
 
     if (import.meta.env.PROD) {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
-        // SW registration failed silently
-      });
+      navigator.serviceWorker.register("/sw.js").catch(() => {});
       return;
     }
 
-    // In development, ensure stale service workers don't interfere with Vite modules
-    navigator.serviceWorker.getRegistrations().then((registrations) => {
-      registrations.forEach((registration) => {
-        registration.unregister();
-      });
-    }).catch(() => {
-      // Ignore cleanup errors in dev
-    });
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => regs.forEach((r) => r.unregister()))
+      .catch(() => {});
   }, []);
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence mode="wait" initial={false}>
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<Suspense fallback={null}><Index /></Suspense>} />
         <Route path="/login" element={<Suspense fallback={null}><Login /></Suspense>} />
@@ -106,20 +99,22 @@ const AnimatedRoutes = () => {
 };
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <AuthProvider>
-          <OfflineBanner />
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <AnimatedRoutes />
-          </BrowserRouter>
-        </AuthProvider>
-      </TooltipProvider>
-    </QueryClientProvider>
-  </ThemeProvider>
+  <ErrorBoundary>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <TooltipProvider>
+          <AuthProvider>
+            <OfflineBanner />
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <AnimatedRoutes />
+            </BrowserRouter>
+          </AuthProvider>
+        </TooltipProvider>
+      </QueryClientProvider>
+    </ThemeProvider>
+  </ErrorBoundary>
 );
 
 export default App;
