@@ -21,39 +21,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Set up auth state listener BEFORE checking session
+    // Track whether the listener has already fired before getSession resolves.
+    // This prevents the race where getSession returns stale data after
+    // onAuthStateChange has already delivered the real session.
+    let listenerFired = false;
+
+    // 1. Set up auth state listener FIRST — this is the source of truth.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+      (event, currentSession) => {
+        listenerFired = true;
+        // Use functional updates to avoid closure-stale state
+        setSession(currentSession);
+        setUser(currentSession?.user ?? null);
         setLoading(false);
 
-        // Send welcome email on first sign up
-        if (event === "SIGNED_IN" && session?.user) {
-          const createdAt = new Date(session.user.created_at).getTime();
-          const now = Date.now();
-          // If account was created within the last 30 seconds, it's a new signup
-          if (now - createdAt < 30000) {
-            try {
-              await supabase.functions.invoke("send-welcome-email", {
-                body: {
-                  email: session.user.email,
-                  name: session.user.user_metadata?.full_name || "",
-                },
-              });
-            } catch (e) {
-              console.error("Welcome email error:", e);
-            }
+        // Send welcome email on first sign up (fire-and-forget, no await in sync callback)
+        if (event === "SIGNED_IN" && currentSession?.user) {
+          const createdAt = new Date(currentSession.user.created_at).getTime();
+          if (Date.now() - createdAt < 30000) {
+            supabase.functions.invoke("send-welcome-email", {
+              body: {
+                email: currentSession.user.email,
+                name: currentSession.user.user_metadata?.full_name || "",
+              },
+            }).catch((e) => console.error("Welcome email error:", e));
           }
         }
       }
     );
 
-    // Check for existing session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
+    // 2. Check for existing session as fallback — only apply if listener hasn't fired yet.
+    supabase.auth.getSession().then(({ data: { session: existingSession } }) => {
+      if (!listenerFired) {
+        setSession(existingSession);
+        setUser(existingSession?.user ?? null);
+        setLoading(false);
+      }
     });
 
     return () => subscription.unsubscribe();

@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { withTimeout } from "@/lib/fetchWithTimeout";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -101,9 +102,11 @@ const UploadReport = () => {
     setResult(null);
 
     try {
-      const response = await supabase.functions.invoke("analyze-report", {
-        body: { reportText: reportText.trim() },
-      });
+      const response = await withTimeout(
+        supabase.functions.invoke("analyze-report", { body: { reportText: reportText.trim() } }),
+        60_000,
+        "analyze-report"
+      );
 
       if (response.error) {
         throw new Error(response.error.message || "Failed to analyze report");

@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { withTimeout } from "@/lib/fetchWithTimeout";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,11 +60,15 @@ const Chatbot = () => {
       headers.Authorization = `Bearer ${session.access_token}`;
     }
     
-    const response = await fetch(CHAT_URL, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ messages: userMessages }),
-    });
+    const response = await withTimeout(
+      fetch(CHAT_URL, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ messages: userMessages }),
+      }),
+      45_000,
+      "chat"
+    );
     if (response.status === 429) throw new Error("Rate limit exceeded. Please try again in a moment.");
     if (response.status === 402) throw new Error("Service temporarily unavailable. Please try again later.");
     if (!response.ok) { const errorData = await response.json().catch(() => ({})); throw new Error(errorData.error || "Failed to get response"); }
