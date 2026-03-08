@@ -116,13 +116,15 @@ const Emergency = () => {
                         </div>
                         <p className="text-xs text-muted-foreground mb-2">{contact.description}</p>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono font-bold text-lg">{contact.number}</span>
+                          <a href={`tel:${contact.number}`} className="font-mono font-bold text-lg text-primary hover:underline">{contact.number}</a>
                           <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleCopyNumber(contact.number)}>
                             {copiedNumber === contact.number ? <Check className="h-3.5 w-3.5 text-success" /> : <Copy className="h-3.5 w-3.5" />}
                           </Button>
-                          <Button size="sm" className="ml-auto h-7" onClick={() => handleCallNumber(contact.number)}>
-                            <Phone className="h-3.5 w-3.5 mr-1" />Call
-                          </Button>
+                          <a href={`tel:${contact.number}`} className="ml-auto">
+                            <Button size="sm" className="h-7">
+                              <Phone className="h-3.5 w-3.5 mr-1" />Call
+                            </Button>
+                          </a>
                         </div>
                       </div>
                     </div>
