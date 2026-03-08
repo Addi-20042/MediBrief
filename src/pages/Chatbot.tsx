@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { withTimeout } from "@/lib/fetchWithTimeout";
+import { withTimeout, withRetry } from "@/lib/fetchWithTimeout";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
