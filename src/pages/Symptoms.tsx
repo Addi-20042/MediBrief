@@ -38,7 +38,7 @@ interface AnalysisResult {
 }
 
 const Symptoms = () => {
-  const [symptoms, setSymptoms] = useState("");
+  const [symptoms, setSymptoms, clearSymptomsDraft] = useFormDraft("symptoms-input", "");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<AnalysisResult | null>(null);
   const { user } = useAuth();
