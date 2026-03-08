@@ -9,10 +9,10 @@ const STORAGE_PREFIX = "medibrief_draft_";
  * Usage:
  *   const [value, setValue, clearDraft] = useFormDraft("symptoms-input", "");
  */
-export function useFormDraft<T extends string>(
+export function useFormDraft(
   key: string,
-  initialValue: T,
-): [T, (val: T) => void, () => void] {
+  initialValue: string = "",
+): [string, (val: string) => void, () => void] {
   const storageKey = STORAGE_PREFIX + key;
 
   const [value, setValueState] = useState<T>(() => {
