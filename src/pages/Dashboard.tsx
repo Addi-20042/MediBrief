@@ -24,6 +24,7 @@ import {
   Pill,
   Footprints,
   Droplets,
+  UserCircle,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
 
@@ -56,6 +57,8 @@ const Dashboard = () => {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [stats, setStats] = useState<HealthStats | null>(null);
   const [todayMetrics, setTodayMetrics] = useState<TodayMetrics | null>(null);
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [profileComplete, setProfileComplete] = useState(true);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -75,7 +78,7 @@ const Dashboard = () => {
       const today = format(new Date(), "yyyy-MM-dd");
 
       // Run ALL queries in parallel for maximum speed
-      const [predictionsRes, metricsRes, remindersRes, logsRes] = await Promise.all([
+      const [predictionsRes, metricsRes, remindersRes, logsRes, profileRes] = await Promise.all([
         supabase
           .from("predictions")
           .select("*")
@@ -99,7 +102,19 @@ const Dashboard = () => {
           .eq("user_id", user.id)
           .gte("taken_at", `${today}T00:00:00`)
           .lte("taken_at", `${today}T23:59:59`),
+        supabase
+          .from("profiles")
+          .select("full_name, blood_type, allergies, medical_conditions")
+          .eq("user_id", user.id)
+          .maybeSingle(),
       ]);
+
+      // Set profile info
+      if (profileRes.data) {
+        const p = profileRes.data as any;
+        setProfileName(p.full_name);
+        setProfileComplete(!!(p.blood_type || p.allergies || p.medical_conditions));
+      }
 
       if (predictionsRes.error) throw predictionsRes.error;
 
@@ -201,12 +216,39 @@ const Dashboard = () => {
             >
               <h1 className="text-3xl font-bold mb-2 flex items-center gap-3">
                 <Heart className="h-8 w-8 text-primary" />
-                Health Dashboard
+                {profileName ? `Welcome back, ${profileName.split(" ")[0]}!` : "Health Dashboard"}
               </h1>
               <p className="text-muted-foreground">
                 Track your health analyses and monitor your wellness journey
               </p>
             </motion.div>
+
+            {/* Profile completion prompt */}
+            {!profileComplete && (
+              <motion.div
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="mb-6"
+              >
+                <Card className="border-primary/20 bg-primary/5">
+                  <CardContent className="py-4">
+                    <div className="flex items-center justify-between gap-4 flex-wrap">
+                      <div className="flex items-center gap-3">
+                        <UserCircle className="h-5 w-5 text-primary" />
+                        <div>
+                          <p className="font-medium">Complete your health profile</p>
+                          <p className="text-sm text-muted-foreground">Add allergies, blood type & conditions for personalized AI insights</p>
+                        </div>
+                      </div>
+                      <Button size="sm" onClick={() => navigate("/profile")} className="gradient-primary text-primary-foreground">
+                        Complete Profile
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              </motion.div>
+            )}
 
             {/* Stats Grid */}
             <StaggerContainer className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8" staggerDelay={0.08}>
