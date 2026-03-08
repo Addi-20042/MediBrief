@@ -21,6 +21,90 @@ function validateReportText(reportText: unknown): { valid: boolean; error?: stri
   return { valid: true, sanitized: sanitizeText(trimmed) };
 }
 
+async function extractTextFromPdfViaVision(pdfBase64: string): Promise<string> {
+  const providers = [
+    {
+      name: "Lovable AI Gateway",
+      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+      key: Deno.env.get("LOVABLE_API_KEY"),
+      model: "google/gemini-2.5-flash",
+    },
+    {
+      name: "Google Gemini Direct",
+      url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+      key: Deno.env.get("GOOGLE_GEMINI_API_KEY"),
+      model: "gemini-2.0-flash",
+    },
+  ];
+
+  for (const provider of providers) {
+    if (!provider.key) continue;
+    try {
+      console.log(`[PDF OCR] Trying ${provider.name}...`);
+
+      // Use Gemini native API for vision with PDF
+      if (provider.name === "Google Gemini Direct") {
+        const response = await fetch(
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${provider.key}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              contents: [{
+                parts: [
+                  { text: "Extract ALL text from this medical report PDF. Return ONLY the extracted text content, preserving the structure (headings, values, units, reference ranges). Do not add any commentary." },
+                  { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
+                ],
+              }],
+            }),
+          }
+        );
+        if (response.ok) {
+          const result = await response.json();
+          const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text && text.length > 20) {
+            console.log(`[PDF OCR] ${provider.name} extracted ${text.length} chars`);
+            return text;
+          }
+        }
+      }
+
+      // For Lovable AI Gateway - use OpenAI-compatible format with image_url for PDF pages
+      if (provider.name === "Lovable AI Gateway") {
+        const response = await fetch(provider.url, {
+          method: "POST",
+          headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: provider.model,
+            messages: [{
+              role: "user",
+              content: [
+                { type: "text", text: "Extract ALL text from this medical report PDF. Return ONLY the extracted text content, preserving the structure (headings, values, units, reference ranges). Do not add any commentary." },
+                { type: "image_url", image_url: { url: `data:application/pdf;base64,${pdfBase64}` } },
+              ],
+            }],
+            temperature: 0.1,
+          }),
+        });
+        if (response.ok) {
+          const data = await response.json();
+          const text = data.choices?.[0]?.message?.content;
+          if (text && text.length > 20) {
+            console.log(`[PDF OCR] ${provider.name} extracted ${text.length} chars`);
+            return text;
+          }
+        } else {
+          const errText = await response.text();
+          console.error(`[PDF OCR] ${provider.name} error:`, response.status, errText);
+        }
+      }
+    } catch (err) {
+      console.error(`[PDF OCR] ${provider.name} failed:`, err);
+    }
+  }
+  throw new Error("Could not extract text from PDF. Please try pasting the report text manually.");
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
   const providers = [
     {
@@ -64,18 +148,33 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    // No authentication required - available to all users
     let body: unknown;
     try { body = await req.json(); } catch {
       return new Response(JSON.stringify({ error: "Invalid JSON body" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { reportText } = body as { reportText?: unknown };
-    const validation = validateReportText(reportText);
-    if (!validation.valid) {
-      return new Response(JSON.stringify({ error: validation.error }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    const { reportText, pdfBase64 } = body as { reportText?: unknown; pdfBase64?: string };
+
+    let finalText: string;
+
+    // If PDF base64 is provided, extract text from it first
+    if (pdfBase64 && typeof pdfBase64 === 'string' && pdfBase64.length > 0) {
+      console.log(`Received PDF base64 (${pdfBase64.length} chars), extracting text...`);
+      try {
+        finalText = await extractTextFromPdfViaVision(pdfBase64);
+      } catch (err) {
+        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Failed to extract text from PDF" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+    } else {
+      // Use provided text
+      const validation = validateReportText(reportText);
+      if (!validation.valid) {
+        return new Response(JSON.stringify({ error: validation.error }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      finalText = validation.sanitized!;
     }
 
     const systemPrompt = `You are an expert medical AI assistant specialized in analyzing medical reports, lab results, and diagnostic tests. You are NOT a doctor and your analysis is for educational purposes only.
@@ -108,7 +207,7 @@ Respond with a JSON object in this EXACT format:
   "disclaimer": "This AI analysis is for educational purposes only."
 }`;
 
-    const userPrompt = `Analyze this medical report comprehensively:\n\n${validation.sanitized}\n\nProvide a detailed analysis with accurate interpretations and actionable recommendations.`;
+    const userPrompt = `Analyze this medical report comprehensively:\n\n${finalText}\n\nProvide a detailed analysis with accurate interpretations and actionable recommendations.`;
     const content = await callAI(systemPrompt, userPrompt);
 
     let result;
