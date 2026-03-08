@@ -120,7 +120,7 @@ async function sendWithBrevo(to: string, subject: string, html: string): Promise
       "Accept": "application/json",
     },
     body: JSON.stringify({
-      sender: { name: "MediBrief", email: "no-reply@medibrief.com" },
+      sender: { name: "MediBrief", email: "raiarchana2580@gmail.com" },
       to: [{ email: to }],
       subject,
       htmlContent: html,
