@@ -56,6 +56,8 @@ const Dashboard = () => {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
   const [stats, setStats] = useState<HealthStats | null>(null);
   const [todayMetrics, setTodayMetrics] = useState<TodayMetrics | null>(null);
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [profileComplete, setProfileComplete] = useState(true);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
