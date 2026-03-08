@@ -76,9 +76,12 @@ const Chatbot = () => {
     return response;
   };
 
+  const sendingRef = useRef(false);
+
   const sendMessage = async (messageText?: string) => {
     const text = messageText || input.trim();
-    if (!text || isLoading) return;
+    if (!text || isLoading || sendingRef.current) return;
+    sendingRef.current = true;
 
     const userMessage: Message = { role: "user", content: text };
     setMessages((prev) => [...prev, userMessage]);
@@ -150,7 +153,7 @@ const Chatbot = () => {
         return prev;
       });
       toast({ title: "Error", description: error instanceof Error ? error.message : "Failed to get response", variant: "destructive" });
-    } finally { setIsLoading(false); inputRef.current?.focus(); }
+    } finally { setIsLoading(false); sendingRef.current = false; inputRef.current?.focus(); }
   };
 
   const clearChat = () => {

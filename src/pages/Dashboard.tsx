@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ import PageTransition from "@/components/animations/PageTransition";
 import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerContainer";
 import DashboardSkeleton from "@/components/skeletons/DashboardSkeleton";
 import { motion } from "framer-motion";
+import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   Heart,
@@ -37,157 +38,128 @@ interface Prediction {
   created_at: string;
 }
 
-interface HealthStats {
-  totalAnalyses: number;
-  symptomAnalyses: number;
-  reportAnalyses: number;
-  thisMonthAnalyses: number;
-  recentConditions: string[];
-  healthScore: number;
-}
+// Fetch all dashboard data in a single parallel call
+const fetchDashboardData = async (userId: string) => {
+  const today = format(new Date(), "yyyy-MM-dd");
 
-interface TodayMetrics {
-  steps: number | null;
-  water_intake: number | null;
-  medications_logged: number;
-  medications_total: number;
-}
+  const [predictionsRes, metricsRes, remindersRes, logsRes, profileRes] = await Promise.all([
+    supabase
+      .from("predictions")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(50),
+    supabase
+      .from("health_metrics")
+      .select("steps,water_intake")
+      .eq("user_id", userId)
+      .eq("metric_date", today)
+      .maybeSingle(),
+    supabase
+      .from("medication_reminders")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("is_active", true),
+    supabase
+      .from("medication_logs")
+      .select("reminder_id")
+      .eq("user_id", userId)
+      .gte("taken_at", `${today}T00:00:00`)
+      .lte("taken_at", `${today}T23:59:59`),
+    supabase
+      .from("profiles")
+      .select("full_name, blood_type, allergies, medical_conditions")
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
+
+  if (predictionsRes.error) throw predictionsRes.error;
+
+  const allPredictions: Prediction[] = predictionsRes.data || [];
+
+  // Profile
+  const profile = profileRes.data as any;
+  const profileName = profile?.full_name ?? null;
+  const profileComplete = !!(profile?.blood_type || profile?.allergies || profile?.medical_conditions);
+
+  // Stats
+  const now = new Date();
+  const monthStart = startOfMonth(now);
+  const monthEnd = endOfMonth(now);
+
+  const thisMonthPredictions = allPredictions.filter((p) => {
+    const date = new Date(p.created_at);
+    return date >= monthStart && date <= monthEnd;
+  });
+
+  const recentConditions: string[] = [];
+  allPredictions.slice(0, 5).forEach((p) => {
+    if (p.predicted_diseases && Array.isArray(p.predicted_diseases)) {
+      p.predicted_diseases.slice(0, 2).forEach((disease: any) => {
+        const name = disease.name || disease;
+        if (!recentConditions.includes(name)) recentConditions.push(name);
+      });
+    }
+  });
+
+  let healthScore = 100;
+  allPredictions.forEach((p) => {
+    if (p.predicted_diseases && Array.isArray(p.predicted_diseases)) {
+      p.predicted_diseases.forEach((disease: any) => {
+        const probability = disease.probability || disease.likelihood || 0;
+        const urgency = (disease.urgency || "").toLowerCase();
+        if (urgency === "high" || probability > 80) healthScore -= 5;
+        else if (urgency === "medium" || probability > 50) healthScore -= 2;
+        else healthScore -= 1;
+      });
+    }
+  });
+  if (thisMonthPredictions.length > 0) healthScore += 5;
+  healthScore = Math.max(10, Math.min(100, healthScore));
+
+  const uniqueLoggedMeds = new Set(logsRes.data?.map((l) => l.reminder_id) || []);
+
+  return {
+    predictions: allPredictions,
+    profileName,
+    profileComplete,
+    stats: {
+      totalAnalyses: allPredictions.length,
+      symptomAnalyses: allPredictions.filter((p) => p.prediction_type === "symptom").length,
+      reportAnalyses: allPredictions.filter((p) => p.prediction_type === "report").length,
+      thisMonthAnalyses: thisMonthPredictions.length,
+      recentConditions: recentConditions.slice(0, 5),
+      healthScore: Math.round(healthScore),
+    },
+    todayMetrics: {
+      steps: metricsRes.data?.steps || null,
+      water_intake: metricsRes.data?.water_intake || null,
+      medications_logged: uniqueLoggedMeds.size,
+      medications_total: remindersRes.data?.length || 0,
+    },
+  };
+};
 
 const Dashboard = () => {
-  const [predictions, setPredictions] = useState<Prediction[]>([]);
-  const [stats, setStats] = useState<HealthStats | null>(null);
-  const [todayMetrics, setTodayMetrics] = useState<TodayMetrics | null>(null);
-  const [profileName, setProfileName] = useState<string | null>(null);
-  const [profileComplete, setProfileComplete] = useState(true);
-  const [loading, setLoading] = useState(true);
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-    fetchData();
+  const { data, isLoading } = useQuery({
+    queryKey: ["dashboard", user?.id],
+    queryFn: () => fetchDashboardData(user!.id),
+    enabled: !!user,
+    staleTime: 2 * 60 * 1000, // 2 min cache
+    gcTime: 5 * 60 * 1000,
+  });
+
+  // Redirect if not logged in
+  useMemo(() => {
+    if (!user) navigate("/login");
   }, [user, navigate]);
 
-  const fetchData = async () => {
-    if (!user) return;
+  if (isLoading || !data) return <DashboardSkeleton />;
 
-    try {
-      const today = format(new Date(), "yyyy-MM-dd");
-
-      // Run ALL queries in parallel for maximum speed
-      const [predictionsRes, metricsRes, remindersRes, logsRes, profileRes] = await Promise.all([
-        supabase
-          .from("predictions")
-          .select("*")
-          .eq("user_id", user.id)
-          .order("created_at", { ascending: false })
-          .limit(50),
-        supabase
-          .from("health_metrics")
-          .select("steps,water_intake")
-          .eq("user_id", user.id)
-          .eq("metric_date", today)
-          .maybeSingle(),
-        supabase
-          .from("medication_reminders")
-          .select("id")
-          .eq("user_id", user.id)
-          .eq("is_active", true),
-        supabase
-          .from("medication_logs")
-          .select("reminder_id")
-          .eq("user_id", user.id)
-          .gte("taken_at", `${today}T00:00:00`)
-          .lte("taken_at", `${today}T23:59:59`),
-        supabase
-          .from("profiles")
-          .select("full_name, blood_type, allergies, medical_conditions")
-          .eq("user_id", user.id)
-          .maybeSingle(),
-      ]);
-
-      // Set profile info
-      if (profileRes.data) {
-        const p = profileRes.data as any;
-        setProfileName(p.full_name);
-        setProfileComplete(!!(p.blood_type || p.allergies || p.medical_conditions));
-      }
-
-      if (predictionsRes.error) throw predictionsRes.error;
-
-      const allPredictions = predictionsRes.data || [];
-      setPredictions(allPredictions);
-
-      const now = new Date();
-      const monthStart = startOfMonth(now);
-      const monthEnd = endOfMonth(now);
-
-      const thisMonthPredictions = allPredictions.filter((p) => {
-        const date = new Date(p.created_at);
-        return date >= monthStart && date <= monthEnd;
-      });
-
-      const recentConditions: string[] = [];
-      allPredictions.slice(0, 5).forEach((p) => {
-        if (p.predicted_diseases && Array.isArray(p.predicted_diseases)) {
-          p.predicted_diseases.slice(0, 2).forEach((disease: any) => {
-            const name = disease.name || disease;
-            if (!recentConditions.includes(name)) {
-              recentConditions.push(name);
-            }
-          });
-        }
-      });
-
-      let healthScore = 100;
-      allPredictions.forEach((p) => {
-        if (p.predicted_diseases && Array.isArray(p.predicted_diseases)) {
-          p.predicted_diseases.forEach((disease: any) => {
-            const probability = disease.probability || disease.likelihood || 0;
-            const urgency = (disease.urgency || "").toLowerCase();
-            if (urgency === "high" || probability > 80) {
-              healthScore -= 5;
-            } else if (urgency === "medium" || probability > 50) {
-              healthScore -= 2;
-            } else {
-              healthScore -= 1;
-            }
-          });
-        }
-      });
-      if (thisMonthPredictions.length > 0) healthScore += 5;
-      healthScore = Math.max(10, Math.min(100, healthScore));
-
-      setStats({
-        totalAnalyses: allPredictions.length,
-        symptomAnalyses: allPredictions.filter((p) => p.prediction_type === "symptom").length,
-        reportAnalyses: allPredictions.filter((p) => p.prediction_type === "report").length,
-        thisMonthAnalyses: thisMonthPredictions.length,
-        recentConditions: recentConditions.slice(0, 5),
-        healthScore: Math.round(healthScore),
-      });
-
-      const uniqueLoggedMeds = new Set(logsRes.data?.map(l => l.reminder_id) || []);
-
-      setTodayMetrics({
-        steps: metricsRes.data?.steps || null,
-        water_intake: metricsRes.data?.water_intake || null,
-        medications_logged: uniqueLoggedMeds.size,
-        medications_total: remindersRes.data?.length || 0,
-      });
-    } catch (error) {
-      console.error("Error fetching data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
-    return <DashboardSkeleton />;
-  }
+  const { predictions, profileName, profileComplete, stats, todayMetrics } = data;
 
   const getHealthScoreColor = (score: number) => {
     if (score >= 80) return "text-success";
@@ -259,13 +231,13 @@ const Dashboard = () => {
                     <Activity className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className={`text-3xl font-bold ${getHealthScoreColor(stats?.healthScore || 0)}`}>
-                      {stats?.healthScore || 0}%
+                    <div className={`text-3xl font-bold ${getHealthScoreColor(stats.healthScore)}`}>
+                      {stats.healthScore}%
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {getHealthScoreLabel(stats?.healthScore || 0)}
+                      {getHealthScoreLabel(stats.healthScore)}
                     </p>
-                    <Progress value={stats?.healthScore || 0} className="mt-2 h-2" />
+                    <Progress value={stats.healthScore} className="mt-2 h-2" />
                   </CardContent>
                 </Card>
               </StaggerItem>
@@ -277,7 +249,7 @@ const Dashboard = () => {
                     <TrendingUp className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">{stats?.totalAnalyses || 0}</div>
+                    <div className="text-3xl font-bold">{stats.totalAnalyses}</div>
                     <p className="text-xs text-muted-foreground mt-1">All-time health checks</p>
                   </CardContent>
                 </Card>
@@ -290,7 +262,7 @@ const Dashboard = () => {
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="text-3xl font-bold">{stats?.thisMonthAnalyses || 0}</div>
+                    <div className="text-3xl font-bold">{stats.thisMonthAnalyses}</div>
                     <p className="text-xs text-muted-foreground mt-1">
                       Analyses in {format(new Date(), "MMMM")}
                     </p>
@@ -307,11 +279,11 @@ const Dashboard = () => {
                   <CardContent>
                     <div className="flex gap-4 text-sm">
                       <div>
-                        <span className="font-bold text-lg">{stats?.symptomAnalyses || 0}</span>
+                        <span className="font-bold text-lg">{stats.symptomAnalyses}</span>
                         <p className="text-xs text-muted-foreground">Symptoms</p>
                       </div>
                       <div>
-                        <span className="font-bold text-lg">{stats?.reportAnalyses || 0}</span>
+                        <span className="font-bold text-lg">{stats.reportAnalyses}</span>
                         <p className="text-xs text-muted-foreground">Reports</p>
                       </div>
                     </div>
@@ -381,7 +353,7 @@ const Dashboard = () => {
                     <CardDescription>Conditions from your recent health analyses</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    {stats?.recentConditions && stats.recentConditions.length > 0 ? (
+                    {stats.recentConditions.length > 0 ? (
                       <div className="flex flex-wrap gap-2">
                         {stats.recentConditions.map((condition, index) => (
                           <Badge key={index} variant="secondary" className="text-sm">
