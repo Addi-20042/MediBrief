@@ -38,22 +38,23 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Static assets (JS, CSS, images, fonts): cache-first
-  if (request.destination === 'script' || request.destination === 'style' || request.destination === 'image' || request.destination === 'font' || url.pathname.match(/\.(js|css|png|jpg|svg|woff2?)$/)) {
+  // Scripts/styles should be network-first to avoid stale chunk/runtime mismatches
+  if (request.destination === 'script' || request.destination === 'style' || url.pathname.match(/\.(js|css)$/)) {
     event.respondWith(
-      caches.match(request).then((cached) => {
-        if (cached) return cached;
-        return fetch(request).then((response) => {
+      fetch(request)
+        .then((response) => {
           if (response.ok) {
             const clone = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
           }
           return response;
-        });
-      }).catch(() => caches.match('/index.html'))
+        })
+        .catch(() => caches.match(request).then((cached) => cached || caches.match('/index.html')))
     );
     return;
   }
+
+  // Images/fonts: cache-first
 
   // HTML navigation: network-first with cache fallback
   if (request.destination === 'document' || request.headers.get('accept')?.includes('text/html')) {

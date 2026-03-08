@@ -18,8 +18,8 @@ export default defineConfig(({ mode }) => ({
     alias: {
       "@": r("./src"),
     },
-    // Keep a single React instance across app + dependencies
-    dedupe: ["react", "react-dom"],
+    // Force a single React dispatcher instance across all dependencies
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "scheduler"],
   },
   build: {
     rollupOptions: {
