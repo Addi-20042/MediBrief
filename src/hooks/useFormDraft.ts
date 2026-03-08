@@ -15,10 +15,10 @@ export function useFormDraft(
 ): [string, (val: string) => void, () => void] {
   const storageKey = STORAGE_PREFIX + key;
 
-  const [value, setValueState] = useState<T>(() => {
+  const [value, setValueState] = useState<string>(() => {
     try {
       const stored = sessionStorage.getItem(storageKey);
-      return stored !== null ? (stored as T) : initialValue;
+      return stored !== null ? stored : initialValue;
     } catch {
       return initialValue;
     }
