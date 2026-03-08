@@ -55,7 +55,7 @@ interface ReportResult {
 }
 
 const UploadReport = () => {
-  const [reportText, setReportText] = useState("");
+  const [reportText, setReportText, clearReportDraft] = useFormDraft("report-input", "");
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReportResult | null>(null);
   const [fileName, setFileName] = useState("");
