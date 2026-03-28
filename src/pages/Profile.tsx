@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerContainer";
+import { normalizePatientName, normalizePhoneNumber } from "@/lib/profileValidation";
 import {
   User, Camera, Save, Loader2, Heart, Ruler, Droplets,
   Calendar, AlertTriangle, Activity, ArrowLeft,
@@ -130,9 +131,22 @@ const Profile = () => {
     if (!user) return;
     setSaving(true);
     try {
+      const trimmedName = fullName.trim();
+      const trimmedPhoneNumber = phoneNumber.trim();
+
+      if (trimmedName && /[0-9]/.test(trimmedName)) {
+        toast({
+          title: "Invalid patient name",
+          description: "Patient name can only contain letters.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
       const updates: any = {
-        full_name: fullName.trim() || null,
-        phone_number: phoneNumber.trim() || null,
+        full_name: trimmedName ? normalizePatientName(trimmedName) : null,
+        phone_number: trimmedPhoneNumber ? normalizePhoneNumber(trimmedPhoneNumber) : null,
         date_of_birth: dateOfBirth || null,
         gender: gender || null,
         blood_type: bloodType || null,
@@ -247,6 +261,7 @@ const Profile = () => {
                       <div className="space-y-2">
                         <Label htmlFor="fullName">Full Name</Label>
                         <Input id="fullName" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="John Doe" />
+                        <p className="text-xs text-muted-foreground">Use letters only for the patient name</p>
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="phone">Phone Number</Label>

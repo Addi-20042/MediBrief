@@ -21,105 +21,93 @@ function validateReportText(reportText: unknown): { valid: boolean; error?: stri
   return { valid: true, sanitized: sanitizeText(trimmed) };
 }
 
-async function extractTextFromPdfViaVision(pdfBase64: string): Promise<string> {
-  const providers = [
-    {
-      name: "Lovable AI Gateway",
-      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-      key: Deno.env.get("LOVABLE_API_KEY"),
-      model: "google/gemini-2.5-flash",
-    },
-    {
-      name: "Google Gemini Direct",
-      url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      key: Deno.env.get("GOOGLE_GEMINI_API_KEY"),
-      model: "gemini-2.0-flash",
-    },
-  ];
+function getAiApiKey(): string {
+  const key = Deno.env.get("GOOGLE_GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY");
+  if (!key) {
+    throw new Error("The AI analysis service is not configured. Add GOOGLE_GEMINI_API_KEY in your Supabase project secrets.");
+  }
+  return key;
+}
 
-  for (const provider of providers) {
-    if (!provider.key) continue;
-    try {
-      console.log(`[PDF OCR] Trying ${provider.name}...`);
+function getProviderErrorMessage(providerName: string, status: number, rawText: string): string {
+  let parsedMessage = rawText;
 
-      // Use Gemini native API for vision with PDF
-      if (provider.name === "Google Gemini Direct") {
-        const response = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${provider.key}`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              contents: [{
-                parts: [
-                  { text: "Extract ALL text from this medical report PDF. Return ONLY the extracted text content, preserving the structure (headings, values, units, reference ranges). Do not add any commentary." },
-                  { inline_data: { mime_type: "application/pdf", data: pdfBase64 } },
-                ],
-              }],
-            }),
-          }
-        );
-        if (response.ok) {
-          const result = await response.json();
-          const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
-          if (text && text.length > 20) {
-            console.log(`[PDF OCR] ${provider.name} extracted ${text.length} chars`);
-            return text;
-          }
-        }
+  try {
+    const parsed = JSON.parse(rawText);
+    const payload = Array.isArray(parsed) ? parsed[0] : parsed;
+    parsedMessage = payload?.error?.message || payload?.message || rawText;
+  } catch {
+    parsedMessage = rawText;
+  }
+
+  if (status === 429) {
+    return `${providerName} quota exceeded or rate limited. ${parsedMessage}`;
+  }
+
+  return `${providerName} error ${status}. ${parsedMessage}`;
+}
+
+function isSupportedDocumentMimeType(mimeType: string): boolean {
+  return mimeType === "application/pdf" || mimeType.startsWith("image/");
+}
+
+async function extractTextFromDocumentViaVision(fileBase64: string, mimeType: string): Promise<string> {
+  const apiKey = getAiApiKey();
+  if (!isSupportedDocumentMimeType(mimeType)) {
+    throw new Error("Unsupported file type. Please upload a PDF or image.");
+  }
+
+  try {
+    console.log(`[OCR] Trying Google Gemini Direct for ${mimeType}...`);
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            parts: [
+              { text: "Extract ALL text from this medical document. Return ONLY the extracted text content, preserving the structure (headings, values, units, and reference ranges). Do not add any commentary." },
+              { inline_data: { mime_type: mimeType, data: fileBase64 } },
+            ],
+          }],
+        }),
       }
-
-      // For Lovable AI Gateway - use OpenAI-compatible format with image_url for PDF pages
-      if (provider.name === "Lovable AI Gateway") {
-        const response = await fetch(provider.url, {
-          method: "POST",
-          headers: { Authorization: `Bearer ${provider.key}`, "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: provider.model,
-            messages: [{
-              role: "user",
-              content: [
-                { type: "text", text: "Extract ALL text from this medical report PDF. Return ONLY the extracted text content, preserving the structure (headings, values, units, reference ranges). Do not add any commentary." },
-                { type: "image_url", image_url: { url: `data:application/pdf;base64,${pdfBase64}` } },
-              ],
-            }],
-            temperature: 0.1,
-          }),
-        });
-        if (response.ok) {
-          const data = await response.json();
-          const text = data.choices?.[0]?.message?.content;
-          if (text && text.length > 20) {
-            console.log(`[PDF OCR] ${provider.name} extracted ${text.length} chars`);
-            return text;
-          }
-        } else {
-          const errText = await response.text();
-          console.error(`[PDF OCR] ${provider.name} error:`, response.status, errText);
-        }
+    );
+    if (response.ok) {
+      const result = await response.json();
+      const text = result.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text && text.length > 20) {
+        console.log(`[OCR] Google Gemini Direct extracted ${text.length} chars`);
+        return text;
       }
-    } catch (err) {
-      console.error(`[PDF OCR] ${provider.name} failed:`, err);
+    } else {
+      const errText = await response.text();
+      const detailedMessage = getProviderErrorMessage("Google Gemini OCR", response.status, errText);
+      console.error("[OCR] Error:", response.status, errText);
+      throw new Error(detailedMessage);
+    }
+  } catch (err) {
+    console.error("[OCR] Google Gemini Direct failed:", err);
+    if (err instanceof Error) {
+      throw err;
     }
   }
-  throw new Error("Could not extract text from PDF. Please try pasting the report text manually.");
+
+  throw new Error("Could not extract text from the uploaded file. Please try pasting the report text manually.");
 }
 
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  const apiKey = getAiApiKey();
   const providers = [
     {
-      name: "Google Gemini Direct",
+      name: "Google Gemini",
       url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      key: Deno.env.get("GOOGLE_GEMINI_API_KEY"),
+      key: apiKey,
       model: "gemini-2.0-flash",
     },
-    {
-      name: "Lovable AI Gateway",
-      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-      key: Deno.env.get("LOVABLE_API_KEY"),
-      model: "google/gemini-3-flash-preview",
-    },
   ];
+  let lastErrorMessage = "";
 
   for (const provider of providers) {
     if (!provider.key) { console.log(`Skipping ${provider.name}: no API key`); continue; }
@@ -134,14 +122,28 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
           temperature: 0.2,
         }),
       });
-      if (response.status === 429 || response.status === 402) { console.log(`${provider.name} error ${response.status}, trying next...`); continue; }
-      if (!response.ok) { const t = await response.text(); console.error(`${provider.name} error:`, response.status, t); continue; }
+      if (response.status === 429 || response.status === 402) {
+        const t = await response.text();
+        lastErrorMessage = getProviderErrorMessage(provider.name, response.status, t);
+        console.log(`${provider.name} error ${response.status}, trying next...`);
+        continue;
+      }
+      if (!response.ok) {
+        const t = await response.text();
+        lastErrorMessage = getProviderErrorMessage(provider.name, response.status, t);
+        console.error(`${provider.name} error:`, response.status, t);
+        continue;
+      }
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
       if (content) { console.log(`${provider.name} succeeded`); return content; }
-    } catch (err) { console.error(`${provider.name} failed:`, err); }
+      lastErrorMessage = `${provider.name} returned an empty response.`;
+    } catch (err) {
+      lastErrorMessage = err instanceof Error ? err.message : `${provider.name} request failed`;
+      console.error(`${provider.name} failed:`, err);
+    }
   }
-  throw new Error("All AI providers failed");
+  throw new Error(lastErrorMessage || "All AI providers failed");
 }
 
 serve(async (req) => {
@@ -154,17 +156,28 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    const { reportText, pdfBase64 } = body as { reportText?: unknown; pdfBase64?: string };
+    const { reportText, pdfBase64, fileBase64, fileMimeType } = body as {
+      reportText?: unknown;
+      pdfBase64?: string;
+      fileBase64?: string;
+      fileMimeType?: string;
+    };
 
     let finalText: string;
 
-    // If PDF base64 is provided, extract text from it first
-    if (pdfBase64 && typeof pdfBase64 === 'string' && pdfBase64.length > 0) {
-      console.log(`Received PDF base64 (${pdfBase64.length} chars), extracting text...`);
+    const uploadedFileBase64 = typeof fileBase64 === "string" && fileBase64.length > 0 ? fileBase64 : pdfBase64;
+    const uploadedFileMimeType =
+      typeof fileMimeType === "string" && fileMimeType.length > 0
+        ? fileMimeType
+        : "application/pdf";
+
+    // If file base64 is provided, extract text from it first.
+    if (uploadedFileBase64 && uploadedFileBase64.length > 0) {
+      console.log(`Received uploaded file (${uploadedFileBase64.length} chars), extracting text...`);
       try {
-        finalText = await extractTextFromPdfViaVision(pdfBase64);
+        finalText = await extractTextFromDocumentViaVision(uploadedFileBase64, uploadedFileMimeType);
       } catch (err) {
-        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Failed to extract text from PDF" }),
+        return new Response(JSON.stringify({ error: err instanceof Error ? err.message : "Failed to extract text from the uploaded file" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
       }
     } else {
@@ -227,7 +240,10 @@ Respond with a JSON object in this EXACT format:
     return new Response(JSON.stringify(result), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("Error analyzing report:", error);
-    return new Response(JSON.stringify({ error: "An error occurred while processing your request" }),
+    const message = error instanceof Error
+      ? error.message
+      : "An error occurred while processing your request";
+    return new Response(JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

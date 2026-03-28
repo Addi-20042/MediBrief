@@ -18,6 +18,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import Layout from "@/components/layout/Layout";
 import {
+  formatReminderTimes,
+  getDefaultReminderTimes,
+  getFrequencyLabel,
+  MEDICATION_FREQUENCY_OPTIONS,
+  MedicationFrequency,
+  syncReminderTimesWithFrequency,
+} from "@/lib/medicationReminders";
+import {
   Heart,
   Activity,
   Droplets,
@@ -93,6 +101,7 @@ interface MedicationLog {
   reminder_id: string;
   taken_at: string;
   skipped: boolean;
+  scheduled_time: string | null;
 }
 
 const HealthTracking = () => {
@@ -126,8 +135,8 @@ const HealthTracking = () => {
   const [newMedication, setNewMedication] = useState({
     medication_name: "",
     dosage: "",
-    frequency: "once_daily",
-    reminder_times: ["09:00"],
+    frequency: "once_daily" as MedicationFrequency,
+    reminder_times: getDefaultReminderTimes("once_daily"),
     notes: "",
   });
 
@@ -290,31 +299,77 @@ const HealthTracking = () => {
     }
   };
 
+  const handleMedicationFrequencyChange = (frequency: MedicationFrequency) => {
+    setNewMedication((prev) => ({
+      ...prev,
+      frequency,
+      reminder_times: syncReminderTimesWithFrequency(frequency, prev.reminder_times),
+    }));
+  };
+
+  const handleReminderTimeChange = (index: number, value: string) => {
+    setNewMedication((prev) => ({
+      ...prev,
+      reminder_times: prev.reminder_times.map((time, timeIndex) => (
+        timeIndex === index ? value : time
+      )),
+    }));
+  };
+
   const handleAddMedication = async () => {
-    if (!user || !newMedication.medication_name || !newMedication.dosage) return;
+    if (!user || !newMedication.medication_name.trim() || !newMedication.dosage.trim()) return;
+
+    const reminderTimes = newMedication.reminder_times
+      .map((time) => time.trim())
+      .filter(Boolean);
+
+    if (reminderTimes.length === 0 || reminderTimes.length !== new Set(reminderTimes).size) {
+      toast({
+        title: "Reminder times required",
+        description: "Please add a unique reminder time for each dose.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     try {
-      const { error } = await supabase.from("medication_reminders").insert({
-        user_id: user.id,
-        medication_name: newMedication.medication_name,
-        dosage: newMedication.dosage,
-        frequency: newMedication.frequency,
-        reminder_times: newMedication.reminder_times,
-        notes: newMedication.notes || null,
-      });
+      const { data: insertedReminder, error } = await supabase
+        .from("medication_reminders")
+        .insert({
+          user_id: user.id,
+          medication_name: newMedication.medication_name.trim(),
+          dosage: newMedication.dosage.trim(),
+          frequency: newMedication.frequency,
+          reminder_times: reminderTimes,
+          notes: newMedication.notes.trim() || null,
+        })
+        .select("id")
+        .single();
 
       if (error) throw error;
 
+      try {
+        await supabase.functions.invoke("send-medication-reminders", {
+          body: {
+            trigger: "schedule_created",
+            user_id: user.id,
+            reminder_id: insertedReminder.id,
+          },
+        });
+      } catch (smsError) {
+        console.error("Medication SMS setup error:", smsError);
+      }
+
       toast({
         title: "Medication added!",
-        description: `${newMedication.medication_name} has been added to your reminders.`,
+        description: `${newMedication.medication_name.trim()} has been added to your reminders.`,
       });
 
       setNewMedication({
         medication_name: "",
         dosage: "",
         frequency: "once_daily",
-        reminder_times: ["09:00"],
+        reminder_times: getDefaultReminderTimes("once_daily"),
         notes: "",
       });
       setAddMedDialogOpen(false);
@@ -329,13 +384,14 @@ const HealthTracking = () => {
     }
   };
 
-  const handleLogMedication = async (reminderId: string, taken: boolean) => {
+  const handleLogMedication = async (reminderId: string, scheduledTime: string, taken: boolean) => {
     if (!user) return;
 
     try {
       const { error } = await supabase.from("medication_logs").insert({
         user_id: user.id,
         reminder_id: reminderId,
+        scheduled_time: scheduledTime,
         skipped: !taken,
       });
 
@@ -398,19 +454,22 @@ const HealthTracking = () => {
     }
   };
 
-  const getFrequencyLabel = (freq: string) => {
-    const labels: Record<string, string> = {
-      once_daily: "Once daily",
-      twice_daily: "Twice daily",
-      thrice_daily: "Three times daily",
-      weekly: "Weekly",
-      as_needed: "As needed",
-    };
-    return labels[freq] || freq;
+  const getDoseLog = (reminder: MedicationReminder, scheduledTime: string) => {
+    return todayLogs.find((log) => (
+      log.reminder_id === reminder.id &&
+      (
+        log.scheduled_time === scheduledTime ||
+        (!log.scheduled_time && reminder.reminder_times.length === 1)
+      )
+    ));
   };
 
-  const isMedicationLogged = (reminderId: string) => {
-    return todayLogs.some(log => log.reminder_id === reminderId);
+  const getCompletedDoseCount = (reminder: MedicationReminder) => {
+    if (!reminder.reminder_times.length) {
+      return 0;
+    }
+
+    return reminder.reminder_times.filter((time) => Boolean(getDoseLog(reminder, time))).length;
   };
 
   if (loading) {
@@ -713,19 +772,32 @@ const HealthTracking = () => {
                         <Label>Frequency</Label>
                         <Select
                           value={newMedication.frequency}
-                          onValueChange={(value) => setNewMedication(prev => ({ ...prev, frequency: value }))}
+                          onValueChange={(value) => handleMedicationFrequencyChange(value as MedicationFrequency)}
                         >
                           <SelectTrigger>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="once_daily">Once daily</SelectItem>
-                            <SelectItem value="twice_daily">Twice daily</SelectItem>
-                            <SelectItem value="thrice_daily">Three times daily</SelectItem>
-                            <SelectItem value="weekly">Weekly</SelectItem>
-                            <SelectItem value="as_needed">As needed</SelectItem>
+                            {MEDICATION_FREQUENCY_OPTIONS.map((option) => (
+                              <SelectItem key={option.value} value={option.value}>
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                      <div className="space-y-3">
+                        <Label>Reminder Times</Label>
+                        {newMedication.reminder_times.map((time, index) => (
+                          <div key={`${newMedication.frequency}-${index}`} className="space-y-2">
+                            <Label className="text-xs text-muted-foreground">Dose {index + 1}</Label>
+                            <Input
+                              type="time"
+                              value={time}
+                              onChange={(e) => handleReminderTimeChange(index, e.target.value)}
+                            />
+                          </div>
+                        ))}
                       </div>
                       <div className="space-y-2">
                         <Label>Notes (optional)</Label>
@@ -763,53 +835,87 @@ const HealthTracking = () => {
                   {reminders.length > 0 ? (
                     <div className="space-y-3">
                       {reminders.map((reminder) => {
-                        const logged = isMedicationLogged(reminder.id);
+                        const completedDoseCount = getCompletedDoseCount(reminder);
+                        const totalDoseCount = reminder.reminder_times.length || 1;
+                        const fullyLogged = completedDoseCount === totalDoseCount;
+
                         return (
                           <div
                             key={reminder.id}
-                            className={`flex items-center justify-between p-4 rounded-lg border transition-colors ${
-                              logged ? "bg-success/10 border-success/30" : "border-border hover:bg-muted/50"
+                            className={`flex flex-col gap-4 rounded-lg border p-4 transition-colors ${
+                              fullyLogged ? "bg-success/10 border-success/30" : "border-border hover:bg-muted/50"
                             }`}
                           >
-                            <div className="flex items-center gap-3">
-                              <div className={`flex h-10 w-10 items-center justify-center rounded-full ${
-                                logged ? "bg-success text-success-foreground" : "bg-primary/10 text-primary"
-                              }`}>
-                                {logged ? <Check className="h-5 w-5" /> : <Pill className="h-5 w-5" />}
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-start gap-3">
+                                <div className={`mt-1 flex h-10 w-10 items-center justify-center rounded-full ${
+                                  fullyLogged ? "bg-success text-success-foreground" : "bg-primary/10 text-primary"
+                                }`}>
+                                  {fullyLogged ? <Check className="h-5 w-5" /> : <Pill className="h-5 w-5" />}
+                                </div>
+                                <div>
+                                  <p className="font-medium">{reminder.medication_name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    {reminder.dosage} • {getFrequencyLabel(reminder.frequency)}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground mt-1">
+                                    Times: {formatReminderTimes(reminder.reminder_times)}
+                                  </p>
+                                </div>
                               </div>
-                              <div>
-                                <p className="font-medium">{reminder.medication_name}</p>
-                                <p className="text-sm text-muted-foreground">
-                                  {reminder.dosage} • {getFrequencyLabel(reminder.frequency)}
-                                </p>
-                              </div>
+                              <Badge variant="secondary" className={fullyLogged ? "bg-success/20 text-success" : ""}>
+                                {completedDoseCount}/{totalDoseCount} doses
+                              </Badge>
                             </div>
-                            <div className="flex items-center gap-2">
-                              {!logged && (
-                                <>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleLogMedication(reminder.id, false)}
-                                    className="text-muted-foreground"
+                            <div className="space-y-2">
+                              {reminder.reminder_times.map((time) => {
+                                const doseLog = getDoseLog(reminder, time);
+
+                                return (
+                                  <div
+                                    key={`${reminder.id}-${time}`}
+                                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border/70 px-3 py-2"
                                   >
-                                    <X className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleLogMedication(reminder.id, true)}
-                                    className="gradient-primary text-primary-foreground"
-                                  >
-                                    <Check className="h-4 w-4 mr-1" />
-                                    Taken
-                                  </Button>
-                                </>
-                              )}
-                              {logged && (
-                                <Badge variant="secondary" className="bg-success/20 text-success">
-                                  Completed
-                                </Badge>
-                              )}
+                                    <div>
+                                      <p className="text-sm font-medium">{time}</p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {doseLog
+                                          ? doseLog.skipped
+                                            ? "Marked as skipped"
+                                            : "Marked as taken"
+                                          : "Pending"}
+                                      </p>
+                                    </div>
+                                    {!doseLog ? (
+                                      <div className="flex items-center gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          onClick={() => handleLogMedication(reminder.id, time, false)}
+                                          className="text-muted-foreground"
+                                        >
+                                          <X className="h-4 w-4" />
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          onClick={() => handleLogMedication(reminder.id, time, true)}
+                                          className="gradient-primary text-primary-foreground"
+                                        >
+                                          <Check className="h-4 w-4 mr-1" />
+                                          Taken
+                                        </Button>
+                                      </div>
+                                    ) : (
+                                      <Badge
+                                        variant="secondary"
+                                        className={doseLog.skipped ? "bg-warning/20 text-warning" : "bg-success/20 text-success"}
+                                      >
+                                        {doseLog.skipped ? "Skipped" : "Completed"}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         );
@@ -845,6 +951,9 @@ const HealthTracking = () => {
                             <p className="font-medium">{reminder.medication_name}</p>
                             <p className="text-sm text-muted-foreground">
                               {reminder.dosage} • {getFrequencyLabel(reminder.frequency)}
+                            </p>
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {formatReminderTimes(reminder.reminder_times)}
                             </p>
                             {reminder.notes && (
                               <p className="text-xs text-muted-foreground mt-1">{reminder.notes}</p>

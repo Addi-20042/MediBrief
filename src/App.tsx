@@ -34,6 +34,7 @@ const Chatbot = lazy(() => import("./pages/Chatbot"));
 const Learn = lazy(() => import("./pages/Learn"));
 const History = lazy(() => import("./pages/History"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Admin = lazy(() => import("./pages/Admin"));
 const Settings = lazy(() => import("./pages/Settings"));
 const HealthTracking = lazy(() => import("./pages/HealthTracking"));
 const Emergency = lazy(() => import("./pages/Emergency"));
@@ -88,6 +89,7 @@ const AnimatedRoutes = () => {
         <Route path="/learn" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><LearnSkeleton /></SkeletonPage>}><Learn /></Suspense></RouteErrorBoundary>} />
         <Route path="/history" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><HistorySkeleton /></SkeletonPage>}><History /></Suspense></RouteErrorBoundary>} />
         <Route path="/dashboard" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><DashboardSkeleton /></SkeletonPage>}><Dashboard /></Suspense></RouteErrorBoundary>} />
+        <Route path="/admin" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><DashboardSkeleton /></SkeletonPage>}><Admin /></Suspense></RouteErrorBoundary>} />
         <Route path="/settings" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><SettingsSkeleton /></SkeletonPage>}><Settings /></Suspense></RouteErrorBoundary>} />
         <Route path="/profile" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><SettingsSkeleton /></SkeletonPage>}><Profile /></Suspense></RouteErrorBoundary>} />
         <Route path="/health-tracking" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><HealthTrackingSkeleton /></SkeletonPage>}><HealthTracking /></Suspense></RouteErrorBoundary>} />

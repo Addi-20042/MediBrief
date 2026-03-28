@@ -14,6 +14,78 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_audit_logs: {
+        Row: {
+          action: string
+          admin_user_id: string
+          after_json: Json | null
+          before_json: Json | null
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          reason: string | null
+          target_user_id: string | null
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          after_json?: Json | null
+          before_json?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          reason?: string | null
+          target_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          after_json?: Json | null
+          before_json?: Json | null
+          created_at?: string
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          reason?: string | null
+          target_user_id?: string | null
+        }
+        Relationships: []
+      }
+      admin_users: {
+        Row: {
+          created_at: string
+          granted_at: string
+          granted_by: string | null
+          is_active: boolean
+          notes: string | null
+          role: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          is_active?: boolean
+          notes?: string | null
+          role?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          granted_at?: string
+          granted_by?: string | null
+          is_active?: boolean
+          notes?: string | null
+          role?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_history: {
         Row: {
           created_at: string
@@ -98,6 +170,7 @@ export type Database = {
           id: string
           notes: string | null
           reminder_id: string | null
+          scheduled_time: string | null
           skipped: boolean
           taken_at: string
           user_id: string
@@ -107,6 +180,7 @@ export type Database = {
           id?: string
           notes?: string | null
           reminder_id?: string | null
+          scheduled_time?: string | null
           skipped?: boolean
           taken_at?: string
           user_id: string
@@ -116,6 +190,7 @@ export type Database = {
           id?: string
           notes?: string | null
           reminder_id?: string | null
+          scheduled_time?: string | null
           skipped?: boolean
           taken_at?: string
           user_id?: string
@@ -123,6 +198,44 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "medication_logs_reminder_id_fkey"
+            columns: ["reminder_id"]
+            isOneToOne: false
+            referencedRelation: "medication_reminders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      medication_sms_logs: {
+        Row: {
+          created_at: string
+          delivery_key: string
+          id: string
+          notification_type: string
+          phone_number: string | null
+          reminder_id: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          delivery_key: string
+          id?: string
+          notification_type: string
+          phone_number?: string | null
+          reminder_id?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          delivery_key?: string
+          id?: string
+          notification_type?: string
+          phone_number?: string | null
+          reminder_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "medication_sms_logs_reminder_id_fkey"
             columns: ["reminder_id"]
             isOneToOne: false
             referencedRelation: "medication_reminders"
@@ -142,6 +255,9 @@ export type Database = {
           notes: string | null
           reminder_times: string[]
           start_date: string
+          status_changed_at: string | null
+          status_changed_by: string | null
+          status_reason: string | null
           updated_at: string
           user_id: string
         }
@@ -156,6 +272,9 @@ export type Database = {
           notes?: string | null
           reminder_times?: string[]
           start_date?: string
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          status_reason?: string | null
           updated_at?: string
           user_id: string
         }
@@ -170,6 +289,9 @@ export type Database = {
           notes?: string | null
           reminder_times?: string[]
           start_date?: string
+          status_changed_at?: string | null
+          status_changed_by?: string | null
+          status_reason?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -178,8 +300,12 @@ export type Database = {
       predictions: {
         Row: {
           created_at: string
+          hidden_at: string | null
+          hidden_by: string | null
+          hidden_reason: string | null
           id: string
           input_data: string
+          is_hidden: boolean
           predicted_diseases: Json
           prediction_type: string
           summary: string | null
@@ -187,8 +313,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          hidden_at?: string | null
+          hidden_by?: string | null
+          hidden_reason?: string | null
           id?: string
           input_data: string
+          is_hidden?: boolean
           predicted_diseases: Json
           prediction_type: string
           summary?: string | null
@@ -196,8 +326,12 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          hidden_at?: string | null
+          hidden_by?: string | null
+          hidden_reason?: string | null
           id?: string
           input_data?: string
+          is_hidden?: boolean
           predicted_diseases?: Json
           prediction_type?: string
           summary?: string | null
@@ -208,6 +342,9 @@ export type Database = {
       profiles: {
         Row: {
           allergies: string | null
+          account_status_changed_at: string | null
+          account_status_changed_by: string | null
+          account_status_reason: string | null
           avatar_url: string | null
           blood_type: string | null
           created_at: string
@@ -216,6 +353,7 @@ export type Database = {
           gender: string | null
           height_cm: number | null
           id: string
+          is_account_active: boolean
           medical_conditions: string | null
           phone_number: string | null
           updated_at: string
@@ -224,6 +362,9 @@ export type Database = {
         }
         Insert: {
           allergies?: string | null
+          account_status_changed_at?: string | null
+          account_status_changed_by?: string | null
+          account_status_reason?: string | null
           avatar_url?: string | null
           blood_type?: string | null
           created_at?: string
@@ -232,6 +373,7 @@ export type Database = {
           gender?: string | null
           height_cm?: number | null
           id?: string
+          is_account_active?: boolean
           medical_conditions?: string | null
           phone_number?: string | null
           updated_at?: string
@@ -240,6 +382,9 @@ export type Database = {
         }
         Update: {
           allergies?: string | null
+          account_status_changed_at?: string | null
+          account_status_changed_by?: string | null
+          account_status_reason?: string | null
           avatar_url?: string | null
           blood_type?: string | null
           created_at?: string
@@ -248,6 +393,7 @@ export type Database = {
           gender?: string | null
           height_cm?: number | null
           id?: string
+          is_account_active?: boolean
           medical_conditions?: string | null
           phone_number?: string | null
           updated_at?: string
@@ -261,7 +407,95 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      admin_get_overview: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      admin_get_user_detail: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: Json
+      }
+      admin_list_audit_logs: {
+        Args: {
+          action_filter?: string
+          limit_count?: number
+          offset_count?: number
+        }
+        Returns: {
+          action: string
+          admin_name: string
+          admin_user_id: string
+          created_at: string
+          entity_id: string | null
+          entity_type: string
+          id: string
+          reason: string | null
+          target_user_id: string | null
+          target_user_name: string
+        }[]
+      }
+      admin_list_users: {
+        Args: {
+          search_term?: string
+          status_filter?: string
+        }
+        Returns: {
+          active_reminders_count: number
+          admin_role: string | null
+          created_at: string
+          email: string | null
+          full_name: string | null
+          is_account_active: boolean
+          phone_number: string | null
+          predictions_count: number
+          user_id: string
+        }[]
+      }
+      admin_set_medication_reminder_status: {
+        Args: {
+          next_is_active: boolean
+          reason?: string
+          target_reminder_id: string
+        }
+        Returns: Json
+      }
+      admin_set_prediction_visibility: {
+        Args: {
+          next_is_hidden: boolean
+          reason?: string
+          target_prediction_id: string
+        }
+        Returns: Json
+      }
+      admin_set_user_status: {
+        Args: {
+          next_is_active: boolean
+          reason?: string
+          target_user_id: string
+        }
+        Returns: Json
+      }
+      get_my_account_status: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          is_account_active: boolean
+          status_reason: string | null
+        }[]
+      }
+      is_admin: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      is_user_account_active: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

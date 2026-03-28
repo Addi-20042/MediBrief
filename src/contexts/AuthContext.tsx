@@ -1,12 +1,13 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
+  isAdmin: boolean;
+  adminLoading: boolean;
   signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
@@ -19,6 +20,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [adminLoading, setAdminLoading] = useState(true);
+
+  const syncAccessState = async (currentUser: User | null) => {
+    if (!currentUser) {
+      setIsAdmin(false);
+      setAdminLoading(false);
+      return;
+    }
+
+    setAdminLoading(true);
+
+    try {
+      const [{ data: accountStatus }, { data: adminRow }] = await Promise.all([
+        supabase.rpc("get_my_account_status"),
+        supabase
+          .from("admin_users")
+          .select("role, is_active")
+          .eq("user_id", currentUser.id)
+          .maybeSingle(),
+      ]);
+
+      const status = Array.isArray(accountStatus) ? accountStatus[0] : accountStatus;
+      if (status && !status.is_account_active) {
+        sessionStorage.setItem(
+          "medibrief-account-disabled",
+          status.status_reason || "Your account is currently inactive. Please contact support.",
+        );
+        await supabase.auth.signOut();
+        setUser(null);
+        setSession(null);
+        setIsAdmin(false);
+        setAdminLoading(false);
+        setLoading(false);
+        return;
+      }
+
+      setIsAdmin(Boolean(adminRow?.is_active));
+    } catch (error) {
+      console.error("Access state sync error:", error);
+      setIsAdmin(false);
+    } finally {
+      setAdminLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Track whether the listener has already fired before getSession resolves.
@@ -34,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(currentSession);
         setUser(currentSession?.user ?? null);
         setLoading(false);
+        void syncAccessState(currentSession?.user ?? null);
 
         // Send welcome email on first sign up (fire-and-forget, no await in sync callback)
         if (event === "SIGNED_IN" && currentSession?.user) {
@@ -46,6 +93,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               },
             }).catch((e) => console.error("Welcome email error:", e));
           }
+
+          supabase.functions
+            .invoke("send-medication-reminders", {
+              body: {
+                trigger: "login_digest",
+                user_id: currentSession.user.id,
+              },
+            })
+            .catch((e) => console.error("Medication login SMS error:", e));
         }
       }
     );
@@ -56,6 +112,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setSession(existingSession);
         setUser(existingSession?.user ?? null);
         setLoading(false);
+        void syncAccessState(existingSession?.user ?? null);
       }
     });
 
@@ -85,16 +142,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signInWithGoogle = async () => {
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
     });
-    return { error: result.error };
+    return { error };
   };
 
   const signOut = async () => {
     await supabase.auth.signOut();
     setUser(null);
     setSession(null);
+    setIsAdmin(false);
+    setAdminLoading(false);
   };
 
   return (
@@ -103,6 +165,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         session,
         loading,
+        isAdmin,
+        adminLoading,
         signUp,
         signIn,
         signInWithGoogle,

@@ -5,6 +5,390 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+type ReminderRow = {
+  id: string;
+  user_id: string;
+  medication_name: string;
+  dosage: string;
+  frequency: string;
+  reminder_times: string[];
+  start_date: string;
+  end_date: string | null;
+  is_active: boolean;
+  notes: string | null;
+};
+
+const frequencyLabels: Record<string, string> = {
+  once_daily: "Once daily",
+  twice_daily: "Twice daily",
+  thrice_daily: "Three times daily",
+  weekly: "Weekly",
+  as_needed: "As needed",
+};
+
+const normalizePhoneNumber = (phoneNumber: string) => {
+  const trimmed = phoneNumber.trim();
+  const digits = trimmed.replace(/\D/g, "");
+
+  if (trimmed.startsWith("+")) {
+    if (digits.length < 10 || digits.length > 15) {
+      throw new Error("Phone number must be a valid international number");
+    }
+
+    return `+${digits}`;
+  }
+
+  if (digits.length === 10) {
+    return `+91${digits}`;
+  }
+
+  if (digits.length === 12 && digits.startsWith("91")) {
+    return `+${digits}`;
+  }
+
+  throw new Error("Invalid phone number. Use a number like +91 9876543210.");
+};
+
+const getIndiaDateTime = () => {
+  const formatter = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(new Date());
+  const getPart = (type: string) => parts.find((part) => part.type === type)?.value || "";
+
+  const year = getPart("year");
+  const month = getPart("month");
+  const day = getPart("day");
+  const hour = getPart("hour");
+  const minute = getPart("minute");
+
+  return {
+    today: `${year}-${month}-${day}`,
+    currentTime: `${hour}:${minute}`,
+  };
+};
+
+const getFrequencyLabel = (frequency: string) => frequencyLabels[frequency] || frequency;
+
+const formatTimes = (times: string[]) => times.filter(Boolean).join(", ");
+
+const getGreetingName = (fullName: string | null) => fullName?.trim().split(/\s+/)[0] || "there";
+
+const truncateMessage = (message: string, maxLength = 320) => (
+  message.length > maxLength ? `${message.slice(0, maxLength - 3)}...` : message
+);
+
+const sendTwilioSms = async (to: string, body: string) => {
+  const accountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+  const authToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+  const messagingServiceSid = Deno.env.get("TWILIO_MESSAGING_SERVICE_SID");
+
+  if (!accountSid || !authToken || !messagingServiceSid) {
+    throw new Error("Twilio credentials are not configured");
+  }
+
+  const response = await fetch(
+    `https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Basic ${btoa(`${accountSid}:${authToken}`)}`,
+        "Content-Type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        To: to,
+        Body: body,
+        MessagingServiceSid: messagingServiceSid,
+      }).toString(),
+    },
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to send SMS");
+  }
+
+  return result;
+};
+
+const reserveDelivery = async (
+  supabase: ReturnType<typeof createClient>,
+  payload: {
+    delivery_key: string;
+    notification_type: string;
+    phone_number: string;
+    reminder_id?: string;
+    user_id: string;
+  },
+) => {
+  const { error } = await supabase.from("medication_sms_logs").insert(payload);
+
+  if (!error) {
+    return true;
+  }
+
+  if (error.code === "23505") {
+    return false;
+  }
+
+  throw error;
+};
+
+const releaseDelivery = async (
+  supabase: ReturnType<typeof createClient>,
+  deliveryKey: string,
+) => {
+  await supabase.from("medication_sms_logs").delete().eq("delivery_key", deliveryKey);
+};
+
+const maybeSingleReminder = async (
+  supabase: ReturnType<typeof createClient>,
+  reminderId: string,
+) => {
+  const { data, error } = await supabase
+    .from("medication_reminders")
+    .select("*")
+    .eq("id", reminderId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as ReminderRow | null;
+};
+
+const getUserProfile = async (
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+) => {
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("full_name, phone_number")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (error) {
+    throw error;
+  }
+
+  return data as { full_name: string | null; phone_number: string | null } | null;
+};
+
+const buildCreatedScheduleMessage = (patientName: string | null, reminder: ReminderRow) =>
+  truncateMessage(
+    `MediBrief: Hi ${getGreetingName(patientName)}, ${reminder.medication_name} (${reminder.dosage}) was added. ${getFrequencyLabel(reminder.frequency)} at ${formatTimes(reminder.reminder_times)}.`,
+  );
+
+const buildLoginDigestMessage = (patientName: string | null, reminders: ReminderRow[]) => {
+  const medSummary = reminders
+    .map((reminder) => (
+      `${reminder.medication_name} ${reminder.dosage} at ${formatTimes(reminder.reminder_times)}`
+    ))
+    .join("; ");
+
+  return truncateMessage(
+    `MediBrief: Hi ${getGreetingName(patientName)}, today's medication plan: ${medSummary}.`,
+  );
+};
+
+const buildDueReminderMessage = (
+  patientName: string | null,
+  reminder: ReminderRow,
+  scheduledTime: string,
+) =>
+  truncateMessage(
+    `MediBrief: Hi ${getGreetingName(patientName)}, it's time to take ${reminder.medication_name} (${reminder.dosage}) scheduled for ${scheduledTime}.`,
+  );
+
+const getMatchedReminderTime = (reminderTimes: string[], currentTime: string) => {
+  const [currentHour, currentMinute] = currentTime.split(":").map(Number);
+
+  return reminderTimes.find((time) => {
+    const [hour, minute] = time.split(":").map(Number);
+    return hour === currentHour && Math.abs(minute - currentMinute) <= 1;
+  }) || null;
+};
+
+const sendScheduleCreatedSms = async (
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+  reminderId: string,
+) => {
+  const reminder = await maybeSingleReminder(supabase, reminderId);
+  if (!reminder) {
+    return { sent: 0, skipped: "Reminder not found" };
+  }
+
+  const profile = await getUserProfile(supabase, userId);
+  if (!profile?.phone_number) {
+    return { sent: 0, skipped: "Phone number missing" };
+  }
+
+  const phoneNumber = normalizePhoneNumber(profile.phone_number);
+  const deliveryKey = `schedule_created:${reminder.id}`;
+  const reserved = await reserveDelivery(supabase, {
+    delivery_key: deliveryKey,
+    notification_type: "schedule_created",
+    phone_number: phoneNumber,
+    reminder_id: reminder.id,
+    user_id: userId,
+  });
+
+  if (!reserved) {
+    return { sent: 0, skipped: "Already sent" };
+  }
+
+  try {
+    await sendTwilioSms(phoneNumber, buildCreatedScheduleMessage(profile.full_name, reminder));
+    return { sent: 1 };
+  } catch (error) {
+    await releaseDelivery(supabase, deliveryKey);
+    throw error;
+  }
+};
+
+const sendLoginDigestSms = async (
+  supabase: ReturnType<typeof createClient>,
+  userId: string,
+) => {
+  const { today } = getIndiaDateTime();
+  const profile = await getUserProfile(supabase, userId);
+
+  if (!profile?.phone_number) {
+    return { sent: 0, skipped: "Phone number missing" };
+  }
+
+  const { data, error } = await supabase
+    .from("medication_reminders")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("is_active", true)
+    .lte("start_date", today)
+    .or(`end_date.is.null,end_date.gte.${today}`)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    throw error;
+  }
+
+  const reminders = (data || []) as ReminderRow[];
+
+  if (reminders.length === 0) {
+    return { sent: 0, skipped: "No active reminders" };
+  }
+
+  const phoneNumber = normalizePhoneNumber(profile.phone_number);
+  const deliveryKey = `login_digest:${userId}:${today}`;
+  const reserved = await reserveDelivery(supabase, {
+    delivery_key: deliveryKey,
+    notification_type: "login_digest",
+    phone_number: phoneNumber,
+    user_id: userId,
+  });
+
+  if (!reserved) {
+    return { sent: 0, skipped: "Already sent today" };
+  }
+
+  try {
+    await sendTwilioSms(phoneNumber, buildLoginDigestMessage(profile.full_name, reminders));
+    return { sent: 1 };
+  } catch (error) {
+    await releaseDelivery(supabase, deliveryKey);
+    throw error;
+  }
+};
+
+const sendScheduledDueSms = async (
+  supabase: ReturnType<typeof createClient>,
+) => {
+  const { today, currentTime } = getIndiaDateTime();
+  const { data, error } = await supabase
+    .from("medication_reminders")
+    .select("*")
+    .eq("is_active", true)
+    .lte("start_date", today);
+
+  if (error) {
+    throw error;
+  }
+
+  const reminders = (data || []) as ReminderRow[];
+  let sent = 0;
+  const errors: string[] = [];
+
+  for (const reminder of reminders) {
+    if (reminder.end_date && reminder.end_date < today) {
+      continue;
+    }
+
+    const matchedTime = getMatchedReminderTime(reminder.reminder_times || [], currentTime);
+    if (!matchedTime) {
+      continue;
+    }
+
+    const { data: logs, error: logsError } = await supabase
+      .from("medication_logs")
+      .select("id, scheduled_time")
+      .eq("user_id", reminder.user_id)
+      .eq("reminder_id", reminder.id)
+      .gte("taken_at", `${today}T00:00:00`)
+      .lte("taken_at", `${today}T23:59:59`);
+
+    if (logsError) {
+      errors.push(`Medication log lookup failed for ${reminder.id}`);
+      continue;
+    }
+
+    const alreadyLogged = (logs || []).some((log) => (
+      log.scheduled_time === matchedTime ||
+      (!log.scheduled_time && reminder.reminder_times.length === 1)
+    ));
+
+    if (alreadyLogged) {
+      continue;
+    }
+
+    const profile = await getUserProfile(supabase, reminder.user_id);
+    if (!profile?.phone_number) {
+      continue;
+    }
+
+    const phoneNumber = normalizePhoneNumber(profile.phone_number);
+    const deliveryKey = `scheduled_due:${reminder.id}:${today}:${matchedTime}`;
+    const reserved = await reserveDelivery(supabase, {
+      delivery_key: deliveryKey,
+      notification_type: "scheduled_due",
+      phone_number: phoneNumber,
+      reminder_id: reminder.id,
+      user_id: reminder.user_id,
+    });
+
+    if (!reserved) {
+      continue;
+    }
+
+    try {
+      await sendTwilioSms(phoneNumber, buildDueReminderMessage(profile.full_name, reminder, matchedTime));
+      sent += 1;
+    } catch (error) {
+      await releaseDelivery(supabase, deliveryKey);
+      errors.push((error as Error).message);
+    }
+  }
+
+  return { sent, errors };
+};
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -13,131 +397,58 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const BREVO_API_KEY = Deno.env.get("BREVO_API_KEY");
-
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Get current time in HH:MM format (IST)
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istNow = new Date(now.getTime() + istOffset);
-    const currentHour = istNow.getUTCHours().toString().padStart(2, "0");
-    const currentMinute = istNow.getUTCMinutes().toString().padStart(2, "0");
-    const currentTime = `${currentHour}:${currentMinute}`;
-    const today = istNow.toISOString().split("T")[0];
+    let body: Record<string, string> = {};
 
-    console.log(`Checking reminders for time: ${currentTime}, date: ${today}`);
-
-    // Get all active medication reminders
-    const { data: reminders, error: remindersError } = await supabase
-      .from("medication_reminders")
-      .select("*")
-      .eq("is_active", true)
-      .lte("start_date", today);
-
-    if (remindersError) {
-      console.error("Error fetching reminders:", remindersError);
-      throw remindersError;
+    try {
+      body = await req.json();
+    } catch {
+      body = {};
     }
 
-    if (!reminders || reminders.length === 0) {
+    const trigger = body.trigger || "scheduled_due";
+
+    if (trigger === "schedule_created") {
+      if (!body.user_id || !body.reminder_id) {
+        return new Response(
+          JSON.stringify({ error: "user_id and reminder_id are required for schedule_created" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
+      const result = await sendScheduleCreatedSms(supabase, body.user_id, body.reminder_id);
       return new Response(
-        JSON.stringify({ message: "No active reminders found", sent: 0 }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        JSON.stringify(result),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    let sentCount = 0;
-    const errors: string[] = [];
-
-    for (const reminder of reminders) {
-      // Check if end_date has passed
-      if (reminder.end_date && reminder.end_date < today) continue;
-
-      // Check if current time matches any reminder time (within 1 minute window)
-      const reminderTimes = reminder.reminder_times || [];
-      const shouldSend = reminderTimes.some((time: string) => {
-        const [h, m] = time.split(":");
-        const [ch, cm] = currentTime.split(":");
-        return h === ch && Math.abs(parseInt(m) - parseInt(cm)) <= 1;
-      });
-
-      if (!shouldSend) continue;
-
-      // Check if already logged today for this reminder
-      const { data: logs } = await supabase
-        .from("medication_logs")
-        .select("id")
-        .eq("reminder_id", reminder.id)
-        .eq("user_id", reminder.user_id)
-        .gte("taken_at", `${today}T00:00:00`)
-        .lte("taken_at", `${today}T23:59:59`);
-
-      if (logs && logs.length > 0) continue;
-
-      // Get user email from auth
-      const { data: userData } = await supabase.auth.admin.getUserById(reminder.user_id);
-      const email = userData?.user?.email;
-      if (!email || !BREVO_API_KEY) continue;
-
-      // Get profile name
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("user_id", reminder.user_id)
-        .maybeSingle();
-
-      const patientName = profile?.full_name || "there";
-
-      try {
-        const emailResponse = await fetch("https://api.brevo.com/v3/smtp/email", {
-          method: "POST",
-          headers: {
-            "api-key": BREVO_API_KEY,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            sender: { name: "MediBrief", email: "raiarchana2580@gmail.com" },
-            to: [{ email }],
-            subject: `💊 Medication Reminder: ${reminder.medication_name}`,
-            htmlContent: `
-              <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 500px; margin: 0 auto; padding: 32px 24px; background: #ffffff;">
-                <div style="text-align: center; margin-bottom: 24px;">
-                  <div style="display: inline-block; background: linear-gradient(135deg, #0d9488, #14b8a6); color: white; padding: 12px 20px; border-radius: 12px; font-size: 24px;">💊</div>
-                </div>
-                <h2 style="color: #1a2332; text-align: center; margin: 0 0 8px;">Medication Reminder</h2>
-                <p style="color: #64748b; text-align: center; margin: 0 0 24px;">Hi ${patientName}, it's time for your medication!</p>
-                <div style="background: #f0fdfa; border: 1px solid #99f6e4; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
-                  <p style="margin: 0 0 8px; font-weight: 600; color: #0d9488; font-size: 18px;">${reminder.medication_name}</p>
-                  <p style="margin: 0; color: #475569;">Dosage: <strong>${reminder.dosage}</strong></p>
-                </div>
-                <p style="color: #94a3b8; font-size: 12px; text-align: center;">This is an automated reminder from MediBrief. Stay healthy! 🌟</p>
-              </div>
-            `,
-          }),
-        });
-
-        if (emailResponse.ok) {
-          sentCount++;
-          console.log(`Email sent to ${email} for ${reminder.medication_name}`);
-        } else {
-          const errText = await emailResponse.text();
-          errors.push(`Failed for ${email}: ${errText}`);
-        }
-      } catch (emailErr) {
-        errors.push(`Email error: ${(emailErr as Error).message}`);
+    if (trigger === "login_digest") {
+      if (!body.user_id) {
+        return new Response(
+          JSON.stringify({ error: "user_id is required for login_digest" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
       }
+
+      const result = await sendLoginDigestSms(supabase, body.user_id);
+      return new Response(
+        JSON.stringify(result),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
     }
 
+    const result = await sendScheduledDueSms(supabase);
     return new Response(
-      JSON.stringify({ message: `Processed reminders`, sent: sentCount, errors }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (error) {
     console.error("Reminder Error:", error);
     return new Response(
       JSON.stringify({ error: (error as Error).message || "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

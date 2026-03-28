@@ -6,22 +6,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { Activity, Loader2, Mail, Lock, Chrome, ShieldCheck, Stethoscope, Brain, AlertCircle } from "lucide-react";
+import { Activity, Loader2, Mail, Lock, Chrome, ShieldCheck, Stethoscope, Brain, AlertCircle, User, Phone } from "lucide-react";
 import { motion } from "framer-motion";
 import { z } from "zod";
+import {
+  normalizePatientName,
+  normalizePhoneNumber,
+  optionalPhoneSchema,
+  patientNameSchema,
+} from "@/lib/profileValidation";
 
 const loginSchema = z.object({
+  fullName: patientNameSchema.optional().or(z.literal("")),
+  phoneNumber: optionalPhoneSchema,
   email: z.string().trim().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 const Login = () => {
+  const [fullName, setFullName] = useState("");
+  const [phoneNumber, setPhoneNumber] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [googleError, setGoogleError] = useState<string | null>(null);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [errors, setErrors] = useState<{ fullName?: string; phoneNumber?: string; email?: string; password?: string }>({});
   const { signIn, signInWithGoogle, user, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -32,21 +42,38 @@ const Login = () => {
     }
   }, [user, authLoading, navigate]);
 
+  useEffect(() => {
+    const disabledMessage = sessionStorage.getItem("medibrief-account-disabled");
+    if (disabledMessage) {
+      toast({
+        title: "Account inactive",
+        description: disabledMessage,
+        variant: "destructive",
+      });
+      sessionStorage.removeItem("medibrief-account-disabled");
+    }
+  }, [toast]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
-    const result = loginSchema.safeParse({ email, password });
+    const result = loginSchema.safeParse({ fullName, phoneNumber, email, password });
     if (!result.success) {
-      const fieldErrors: { email?: string; password?: string } = {};
+      const fieldErrors: { fullName?: string; phoneNumber?: string; email?: string; password?: string } = {};
       result.error.errors.forEach((err) => {
         if (err.path[0]) {
-          fieldErrors[err.path[0] as "email" | "password"] = err.message;
+          fieldErrors[err.path[0] as "fullName" | "phoneNumber" | "email" | "password"] = err.message;
         }
       });
       setErrors(fieldErrors);
       return;
     }
+
+    const normalizedFullName = result.data.fullName ? normalizePatientName(result.data.fullName) : "";
+    const normalizedPhoneNumber = result.data.phoneNumber?.trim()
+      ? normalizePhoneNumber(result.data.phoneNumber)
+      : "";
 
     setLoading(true);
     try {
@@ -63,6 +90,29 @@ const Login = () => {
         }
         toast({ title: "Login Failed", description: message, variant: "destructive" });
       } else {
+        if (normalizedFullName || normalizedPhoneNumber) {
+          try {
+            const { data: { user: signedInUser } } = await supabase.auth.getUser();
+            if (signedInUser) {
+              const updates: Record<string, string> = {};
+
+              if (normalizedFullName) {
+                updates.full_name = normalizedFullName;
+              }
+
+              if (normalizedPhoneNumber) {
+                updates.phone_number = normalizedPhoneNumber;
+              }
+
+              if (Object.keys(updates).length > 0) {
+                await supabase.from("profiles").update(updates as any).eq("user_id", signedInUser.id);
+              }
+            }
+          } catch (profileError) {
+            console.error("Profile update after login failed:", profileError);
+          }
+        }
+
         toast({ title: "Welcome back!", description: "You have successfully signed in." });
         navigate("/dashboard");
       }
@@ -163,6 +213,25 @@ const Login = () => {
 
           {/* Email Login Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="fullName">Patient Name</Label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input id="fullName" type="text" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} className="pl-10 h-11" disabled={loading} autoComplete="name" />
+                </div>
+                {errors.fullName && <p className="text-sm text-destructive">{errors.fullName}</p>}
+                <p className="text-xs text-muted-foreground">Letters only</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phoneNumber">Phone Number</Label>
+                <div className="relative">
+                  <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input id="phoneNumber" type="tel" placeholder="+91 9876543210" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="pl-10 h-11" disabled={loading} autoComplete="tel" />
+                </div>
+                {errors.phoneNumber && <p className="text-sm text-destructive">{errors.phoneNumber}</p>}
+              </div>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <div className="relative">

@@ -20,6 +20,228 @@ interface ReportData {
   disclaimer?: string;
 }
 
+const escapeHtml = (value: string): string =>
+  value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+
+const toSafeText = (value?: string): string => escapeHtml((value ?? "").trim());
+
+const toSafeList = (values?: string[]): string[] =>
+  (values ?? []).map((value) => toSafeText(value)).filter(Boolean);
+
+const getReportKind = (title: string): string =>
+  title.toLowerCase().includes("symptom") ? "Symptom review" : "Medical report review";
+
+const getFileStamp = (): string => new Date().toISOString().split("T")[0];
+
+const reportStyles = `
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    font-family: "Segoe UI", Arial, sans-serif;
+    line-height: 1.6;
+    color: #1f2937;
+    background: #f4f7fb;
+  }
+
+  .page {
+    max-width: 880px;
+    margin: 0 auto;
+    background: #ffffff;
+    padding: 36px 40px 40px;
+  }
+
+  .header {
+    border-bottom: 3px solid #0f766e;
+    padding-bottom: 18px;
+    margin-bottom: 28px;
+  }
+
+  .brand {
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #0f766e;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+
+  .title {
+    font-size: 30px;
+    line-height: 1.2;
+    color: #0f172a;
+    margin: 0 0 6px;
+  }
+
+  .subtitle {
+    margin: 0;
+    color: #475569;
+    font-size: 15px;
+  }
+
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 26px;
+  }
+
+  .meta-card {
+    border: 1px solid #dbe4ee;
+    border-radius: 12px;
+    padding: 14px 16px;
+    background: #f8fbff;
+  }
+
+  .meta-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 6px;
+  }
+
+  .meta-value {
+    font-size: 15px;
+    font-weight: 600;
+    color: #0f172a;
+  }
+
+  .section {
+    margin-bottom: 22px;
+  }
+
+  .section-card {
+    border: 1px solid #dbe4ee;
+    border-radius: 14px;
+    padding: 18px 20px;
+    background: #ffffff;
+  }
+
+  .section-card.muted {
+    background: #f8fbff;
+  }
+
+  .section-card.alert {
+    background: #fff7ed;
+    border-color: #fdba74;
+  }
+
+  .section-title {
+    margin: 0 0 12px;
+    font-size: 17px;
+    color: #0f172a;
+  }
+
+  .section-text {
+    margin: 0;
+    color: #334155;
+    white-space: pre-wrap;
+  }
+
+  .topic-card {
+    border: 1px solid #dbe4ee;
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 14px;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    background: #ffffff;
+  }
+
+  .topic-header {
+    display: flex;
+    gap: 14px;
+    align-items: flex-start;
+    margin-bottom: 12px;
+  }
+
+  .topic-number {
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    background: #0f766e;
+    color: #ffffff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  .topic-name {
+    margin: 2px 0 0;
+    font-size: 18px;
+    color: #0f172a;
+  }
+
+  .supporting-block {
+    margin-top: 14px;
+  }
+
+  .supporting-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #64748b;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+
+  .tag-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  .list {
+    margin: 0;
+    padding-left: 18px;
+    color: #334155;
+  }
+
+  .list li + li {
+    margin-top: 8px;
+  }
+
+  .footer {
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid #dbe4ee;
+    color: #64748b;
+    font-size: 12px;
+  }
+
+  @media print {
+    body {
+      background: #ffffff;
+    }
+
+    .page {
+      max-width: none;
+      padding: 24px;
+    }
+  }
+`;
+
 export const getProbabilityPercent = (probability: string): number => {
   switch (probability.toLowerCase()) {
     case "high":
@@ -40,674 +262,293 @@ export const getProbabilityLabel = (probability: string): string => {
   return `${percent}% match`;
 };
 
-// Generate professional HTML report for print/download
-export const generateReportHTML = (data: ReportData): string => {
-  const conditionsHTML = data.conditions
-    .map((condition, index) => {
-      const probability = condition.probability || condition.likelihood || "Unknown";
-      const probabilityPercent = getProbabilityPercent(probability);
-      const urgencyColor = getUrgencyColorHex(condition.urgency || "Routine");
-      const probabilityColor = getProbabilityColorHex(probability);
-
-      return `
-        <div class="condition-card">
-          <div class="condition-header">
-            <div class="condition-rank">${index + 1}</div>
-            <div class="condition-title">
-              <h3>${condition.name}</h3>
-              ${condition.urgency ? `<span class="urgency-badge" style="background: ${urgencyColor}">${condition.urgency}</span>` : ''}
-            </div>
-            <div class="probability-badge" style="background: ${probabilityColor}">${probabilityPercent}% Match</div>
-          </div>
-          
-          <div class="probability-bar-container">
-            <div class="probability-bar" style="width: ${probabilityPercent}%; background: ${probabilityColor}"></div>
-          </div>
-          
-          ${condition.description ? `<p class="condition-description">${condition.description}</p>` : ''}
-          
-          ${condition.matchingSymptoms && condition.matchingSymptoms.length > 0 ? `
-            <div class="section">
-              <h4>Matching Symptoms</h4>
-              <div class="tags">
-                ${condition.matchingSymptoms.map(s => `<span class="tag">${s}</span>`).join('')}
-              </div>
-            </div>
-          ` : ''}
-          
-          ${condition.relatedFindings && condition.relatedFindings.length > 0 ? `
-            <div class="section">
-              <h4>Related Findings</h4>
-              <div class="tags">
-                ${condition.relatedFindings.map(f => `<span class="tag">${f}</span>`).join('')}
-              </div>
-            </div>
-          ` : ''}
-          
-          ${condition.recommendations && condition.recommendations.length > 0 ? `
-            <div class="section">
-              <h4>Recommendations</h4>
-              <ul class="recommendations-list">
-                ${condition.recommendations.map(rec => `<li>${rec}</li>`).join('')}
-              </ul>
-            </div>
-          ` : ''}
-        </div>
-      `;
-    })
-    .join('');
+const buildTopicCards = (conditions: ConditionData[]): string => {
+  if (conditions.length === 0) {
+    return `
+      <div class="section-card muted">
+        <h2 class="section-title">Topics for Follow-Up</h2>
+        <p class="section-text">No follow-up topics were generated for this report.</p>
+      </div>
+    `;
+  }
 
   return `
+    <div class="section">
+      <div class="section-card muted" style="margin-bottom: 14px;">
+        <h2 class="section-title">Topics for Follow-Up</h2>
+        <p class="section-text">Use these notes to guide a calm, informed discussion with a licensed healthcare professional.</p>
+      </div>
+      ${conditions
+        .map((condition, index) => {
+          const matchingSymptoms = toSafeList(condition.matchingSymptoms);
+          const relatedFindings = toSafeList(condition.relatedFindings);
+          const recommendations = toSafeList(condition.recommendations);
+
+          return `
+            <div class="topic-card">
+              <div class="topic-header">
+                <div class="topic-number">${index + 1}</div>
+                <div>
+                  <h3 class="topic-name">${toSafeText(condition.name || "Clinical note")}</h3>
+                </div>
+              </div>
+
+              ${condition.description ? `<p class="section-text">${toSafeText(condition.description)}</p>` : ""}
+
+              ${matchingSymptoms.length > 0 ? `
+                <div class="supporting-block">
+                  <div class="supporting-label">Relevant Symptoms</div>
+                  <div class="tag-row">${matchingSymptoms.map((symptom) => `<span class="tag">${symptom}</span>`).join("")}</div>
+                </div>
+              ` : ""}
+
+              ${relatedFindings.length > 0 ? `
+                <div class="supporting-block">
+                  <div class="supporting-label">Relevant Findings</div>
+                  <div class="tag-row">${relatedFindings.map((finding) => `<span class="tag">${finding}</span>`).join("")}</div>
+                </div>
+              ` : ""}
+
+              ${recommendations.length > 0 ? `
+                <div class="supporting-block">
+                  <div class="supporting-label">Suggested Next Steps</div>
+                  <ul class="list">
+                    ${recommendations.map((recommendation) => `<li>${recommendation}</li>`).join("")}
+                  </ul>
+                </div>
+              ` : ""}
+            </div>
+          `;
+        })
+        .join("")}
+    </div>
+  `;
+};
+
+const buildReportBody = (data: ReportData): string => {
+  const title = toSafeText(data.title || "Health Report");
+  const date = toSafeText(data.date || new Date().toLocaleString());
+  const inputData = toSafeText(data.inputData);
+  const summary = toSafeText(data.summary);
+  const generalAdvice = toSafeText(data.generalAdvice);
+  const recommendations = toSafeList(data.recommendations);
+  const disclaimer = toSafeText(
+    data.disclaimer ||
+      "This report is intended for educational support only and should not replace evaluation, diagnosis, or treatment from a licensed healthcare professional."
+  );
+
+  return `
+    <div class="page">
+      <div class="header">
+        <div class="brand">MediBrief</div>
+        <h1 class="title">${title}</h1>
+        <p class="subtitle">Prepared as a patient-friendly reference to support discussion with a clinician.</p>
+      </div>
+
+      <div class="meta-grid">
+        <div class="meta-card">
+          <div class="meta-label">Prepared On</div>
+          <div class="meta-value">${date}</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">Report Type</div>
+          <div class="meta-value">${toSafeText(getReportKind(data.title || ""))}</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">Items Included</div>
+          <div class="meta-value">${data.conditions.length}</div>
+        </div>
+      </div>
+
+      ${inputData ? `
+        <div class="section">
+          <div class="section-card">
+            <h2 class="section-title">Submitted Information</h2>
+            <p class="section-text">${inputData}</p>
+          </div>
+        </div>
+      ` : ""}
+
+      ${summary ? `
+        <div class="section">
+          <div class="section-card muted">
+            <h2 class="section-title">Health Overview</h2>
+            <p class="section-text">${summary}</p>
+          </div>
+        </div>
+      ` : ""}
+
+      ${buildTopicCards(data.conditions)}
+
+      ${generalAdvice ? `
+        <div class="section">
+          <div class="section-card">
+            <h2 class="section-title">Care Guidance</h2>
+            <p class="section-text">${generalAdvice}</p>
+          </div>
+        </div>
+      ` : ""}
+
+      ${recommendations.length > 0 ? `
+        <div class="section">
+          <div class="section-card">
+            <h2 class="section-title">Suggested Next Steps</h2>
+            <ul class="list">
+              ${recommendations.map((recommendation) => `<li>${recommendation}</li>`).join("")}
+            </ul>
+          </div>
+        </div>
+      ` : ""}
+
+      <div class="section">
+        <div class="section-card alert">
+          <h2 class="section-title">Important Note</h2>
+          <p class="section-text">${disclaimer}</p>
+        </div>
+      </div>
+
+      <div class="footer">
+        <div>Generated by MediBrief on ${date}</div>
+        <div>Keep this report with your records and share it with a licensed clinician if you need follow-up care.</div>
+      </div>
+    </div>
+  `;
+};
+
+export const generateReportHTML = (data: ReportData): string => `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${data.title} - MediBrief Report</title>
-  <style>
-    * {
-      box-sizing: border-box;
-      margin: 0;
-      padding: 0;
-    }
-    
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-      line-height: 1.6;
-      color: #1f2937;
-      background: #ffffff;
-      padding: 40px;
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    
-    .header {
-      background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
-      color: white;
-      padding: 30px;
-      border-radius: 12px;
-      margin-bottom: 30px;
-      text-align: center;
-    }
-    
-    .header h1 {
-      font-size: 28px;
-      margin-bottom: 5px;
-    }
-    
-    .header .subtitle {
-      opacity: 0.9;
-      font-size: 14px;
-    }
-    
-    .meta-info {
-      display: flex;
-      justify-content: space-between;
-      background: #f9fafb;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 25px;
-      border: 1px solid #e5e7eb;
-    }
-    
-    .meta-item {
-      text-align: center;
-    }
-    
-    .meta-label {
-      font-size: 12px;
-      color: #6b7280;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-    
-    .meta-value {
-      font-weight: 600;
-      color: #111827;
-      margin-top: 4px;
-    }
-    
-    .input-section {
-      background: #f0fdfa;
-      border-left: 4px solid #0d9488;
-      padding: 20px;
-      border-radius: 0 8px 8px 0;
-      margin-bottom: 25px;
-    }
-    
-    .input-section h2 {
-      font-size: 14px;
-      color: #0d9488;
-      margin-bottom: 10px;
-    }
-    
-    .input-section p {
-      color: #374151;
-    }
-    
-    .summary-section {
-      background: #fffbeb;
-      border-left: 4px solid #f59e0b;
-      padding: 20px;
-      border-radius: 0 8px 8px 0;
-      margin-bottom: 25px;
-    }
-    
-    .summary-section h2 {
-      font-size: 14px;
-      color: #d97706;
-      margin-bottom: 10px;
-    }
-    
-    .conditions-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 20px;
-      padding-bottom: 10px;
-      border-bottom: 2px solid #e5e7eb;
-    }
-    
-    .conditions-header h2 {
-      font-size: 20px;
-      color: #111827;
-    }
-    
-    .condition-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 15px;
-      background: white;
-      page-break-inside: avoid;
-    }
-    
-    .condition-header {
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      margin-bottom: 15px;
-    }
-    
-    .condition-rank {
-      width: 36px;
-      height: 36px;
-      background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-weight: 700;
-      font-size: 16px;
-    }
-    
-    .condition-title {
-      flex: 1;
-    }
-    
-    .condition-title h3 {
-      font-size: 18px;
-      color: #111827;
-      margin-bottom: 4px;
-    }
-    
-    .urgency-badge {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 9999px;
-      color: white;
-      font-weight: 500;
-    }
-    
-    .probability-badge {
-      font-size: 12px;
-      padding: 6px 14px;
-      border-radius: 9999px;
-      color: white;
-      font-weight: 600;
-    }
-    
-    .probability-bar-container {
-      height: 8px;
-      background: #e5e7eb;
-      border-radius: 4px;
-      margin-bottom: 15px;
-      overflow: hidden;
-    }
-    
-    .probability-bar {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 0.3s ease;
-    }
-    
-    .condition-description {
-      color: #4b5563;
-      margin-bottom: 15px;
-      font-size: 14px;
-    }
-    
-    .section {
-      margin-top: 15px;
-    }
-    
-    .section h4 {
-      font-size: 13px;
-      color: #374151;
-      margin-bottom: 8px;
-      font-weight: 600;
-    }
-    
-    .tags {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 6px;
-    }
-    
-    .tag {
-      background: #f3f4f6;
-      color: #374151;
-      padding: 4px 10px;
-      border-radius: 6px;
-      font-size: 12px;
-    }
-    
-    .recommendations-list {
-      list-style: none;
-      padding-left: 0;
-    }
-    
-    .recommendations-list li {
-      position: relative;
-      padding-left: 20px;
-      margin-bottom: 8px;
-      font-size: 14px;
-      color: #4b5563;
-    }
-    
-    .recommendations-list li::before {
-      content: "✓";
-      position: absolute;
-      left: 0;
-      color: #10b981;
-      font-weight: bold;
-    }
-    
-    .general-advice {
-      background: #f3f4f6;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 25px;
-    }
-    
-    .general-advice h2 {
-      font-size: 16px;
-      color: #111827;
-      margin-bottom: 10px;
-    }
-    
-    .recommendations-section {
-      margin-bottom: 25px;
-    }
-    
-    .recommendations-section h2 {
-      font-size: 16px;
-      color: #111827;
-      margin-bottom: 15px;
-    }
-    
-    .disclaimer {
-      background: #fef2f2;
-      border: 1px solid #fecaca;
-      padding: 20px;
-      border-radius: 8px;
-      margin-bottom: 25px;
-    }
-    
-    .disclaimer h2 {
-      font-size: 14px;
-      color: #dc2626;
-      margin-bottom: 8px;
-    }
-    
-    .disclaimer p {
-      font-size: 13px;
-      color: #7f1d1d;
-    }
-    
-    .footer {
-      text-align: center;
-      padding-top: 20px;
-      border-top: 1px solid #e5e7eb;
-      color: #6b7280;
-      font-size: 12px;
-    }
-    
-    .footer .logo {
-      font-size: 18px;
-      font-weight: 700;
-      color: #0d9488;
-      margin-bottom: 5px;
-    }
-    
-    @media print {
-      body {
-        padding: 20px;
-      }
-      
-      .condition-card {
-        break-inside: avoid;
-      }
-    }
-  </style>
+  <title>${toSafeText(data.title || "Health Report")} - MediBrief</title>
+  <style>${reportStyles}</style>
 </head>
 <body>
-  <div class="header">
-    <h1>🏥 MediBrief</h1>
-    <p class="subtitle">${data.title}</p>
-  </div>
-  
-  <div class="meta-info">
-    <div class="meta-item">
-      <div class="meta-label">Report Date</div>
-      <div class="meta-value">${data.date}</div>
-    </div>
-    <div class="meta-item">
-      <div class="meta-label">Conditions Found</div>
-      <div class="meta-value">${data.conditions.length}</div>
-    </div>
-    <div class="meta-item">
-      <div class="meta-label">Report Type</div>
-      <div class="meta-value">${data.title.includes("Symptom") ? "Symptom Analysis" : "Report Analysis"}</div>
-    </div>
-  </div>
-  
-  ${data.inputData ? `
-    <div class="input-section">
-      <h2>📋 Input Data</h2>
-      <p>${data.inputData}</p>
-    </div>
-  ` : ''}
-  
-  ${data.summary ? `
-    <div class="summary-section">
-      <h2>📝 AI Summary</h2>
-      <p>${data.summary}</p>
-    </div>
-  ` : ''}
-  
-  <div class="conditions-header">
-    <h2>🔬 Possible Conditions</h2>
-  </div>
-  
-  ${conditionsHTML}
-  
-  ${data.generalAdvice ? `
-    <div class="general-advice">
-      <h2>💡 General Advice</h2>
-      <p>${data.generalAdvice}</p>
-    </div>
-  ` : ''}
-  
-  ${data.recommendations && data.recommendations.length > 0 ? `
-    <div class="recommendations-section">
-      <h2>✅ Recommendations</h2>
-      <ul class="recommendations-list">
-        ${data.recommendations.map(rec => `<li>${rec}</li>`).join('')}
-      </ul>
-    </div>
-  ` : ''}
-  
-  <div class="disclaimer">
-    <h2>⚠️ Medical Disclaimer</h2>
-    <p>${data.disclaimer || "This analysis is for educational purposes only and should not be considered medical advice. Please consult a healthcare professional for proper diagnosis and treatment."}</p>
-  </div>
-  
-  <div class="footer">
-    <div class="logo">MediBrief</div>
-    <p>Generated on ${data.date}</p>
-    <p>This report was generated by AI for educational purposes only.</p>
-  </div>
+  ${buildReportBody(data)}
 </body>
 </html>
-  `;
-};
+`;
 
-const getUrgencyColorHex = (urgency: string): string => {
-  switch (urgency.toLowerCase()) {
-    case "emergency":
-      return "#dc2626";
-    case "urgent":
-      return "#f59e0b";
-    case "routine":
-      return "#3b82f6";
-    default:
-      return "#10b981";
-  }
-};
-
-const getProbabilityColorHex = (probability: string): string => {
-  switch (probability.toLowerCase()) {
-    case "high":
-      return "#dc2626";
-    case "medium":
-      return "#f59e0b";
-    default:
-      return "#10b981";
-  }
-};
-
-// Generate plain text report for backward compatibility
 export const generateReportText = (data: ReportData): string => {
-  let text = `${"=".repeat(60)}\n`;
-  text += `MEDIBRIEF - ${data.title.toUpperCase()}\n`;
-  text += `${"=".repeat(60)}\n\n`;
-  text += `Date: ${data.date}\n\n`;
+  let text = `MEDIBRIEF - ${data.title.toUpperCase()}\n`;
+  text += `${"=".repeat(72)}\n`;
+  text += `Prepared On: ${data.date}\n`;
+  text += `Report Type: ${getReportKind(data.title)}\n`;
+  text += `Items Included: ${data.conditions.length}\n\n`;
 
   if (data.inputData) {
-    text += `INPUT DATA\n${"-".repeat(40)}\n`;
+    text += `SUBMITTED INFORMATION\n${"-".repeat(32)}\n`;
     text += `${data.inputData}\n\n`;
   }
 
   if (data.summary) {
-    text += `SUMMARY\n${"-".repeat(40)}\n`;
+    text += `HEALTH OVERVIEW\n${"-".repeat(32)}\n`;
     text += `${data.summary}\n\n`;
   }
 
-  if (data.conditions && data.conditions.length > 0) {
-    text += `POSSIBLE CONDITIONS\n${"-".repeat(40)}\n\n`;
-
+  if (data.conditions.length > 0) {
+    text += `TOPICS FOR FOLLOW-UP\n${"-".repeat(32)}\n`;
     data.conditions.forEach((condition, index) => {
-      const probability = condition.probability || condition.likelihood || "Unknown";
-      const probabilityPercent = getProbabilityPercent(probability);
-      
       text += `${index + 1}. ${condition.name}\n`;
-      text += `   Probability: ${probability} (${probabilityPercent}%)\n`;
-      
-      if (condition.urgency) {
-        text += `   Urgency: ${condition.urgency}\n`;
-      }
-      
       if (condition.description) {
-        text += `   Description: ${condition.description}\n`;
+        text += `   ${condition.description}\n`;
       }
-
       if (condition.matchingSymptoms && condition.matchingSymptoms.length > 0) {
-        text += `   Matching Symptoms: ${condition.matchingSymptoms.join(", ")}\n`;
+        text += `   Relevant Symptoms: ${condition.matchingSymptoms.join(", ")}\n`;
       }
-
       if (condition.relatedFindings && condition.relatedFindings.length > 0) {
-        text += `   Related Findings: ${condition.relatedFindings.join(", ")}\n`;
+        text += `   Relevant Findings: ${condition.relatedFindings.join(", ")}\n`;
       }
-
       if (condition.recommendations && condition.recommendations.length > 0) {
-        text += `   Recommendations:\n`;
-        condition.recommendations.forEach((rec) => {
-          text += `      - ${rec}\n`;
+        text += `   Suggested Next Steps:\n`;
+        condition.recommendations.forEach((recommendation) => {
+          text += `   - ${recommendation}\n`;
         });
       }
-
       text += `\n`;
     });
   }
 
   if (data.generalAdvice) {
-    text += `GENERAL ADVICE\n${"-".repeat(40)}\n`;
+    text += `CARE GUIDANCE\n${"-".repeat(32)}\n`;
     text += `${data.generalAdvice}\n\n`;
   }
 
   if (data.recommendations && data.recommendations.length > 0) {
-    text += `RECOMMENDATIONS\n${"-".repeat(40)}\n`;
-    data.recommendations.forEach((rec, index) => {
-      text += `${index + 1}. ${rec}\n`;
+    text += `SUGGESTED NEXT STEPS\n${"-".repeat(32)}\n`;
+    data.recommendations.forEach((recommendation, index) => {
+      text += `${index + 1}. ${recommendation}\n`;
     });
     text += `\n`;
   }
 
-  text += `${"=".repeat(60)}\n`;
-  text += `MEDICAL DISCLAIMER\n`;
-  text += `${"=".repeat(60)}\n`;
-  text += data.disclaimer || 
-    "This analysis is for educational purposes only and should not be considered medical advice. Please consult a healthcare professional for proper diagnosis and treatment.";
-  text += `\n\n`;
+  text += `IMPORTANT NOTE\n${"-".repeat(32)}\n`;
+  text += `${data.disclaimer || "This report is intended for educational support only and should not replace evaluation, diagnosis, or treatment from a licensed healthcare professional."}\n\n`;
   text += `Generated by MediBrief on ${data.date}\n`;
 
   return text;
 };
 
-// Download as PDF (primary format)
 export const downloadReportPDF = async (data: ReportData) => {
   try {
-    // Dynamically import html2pdf
-    const html2pdf = (await import('html2pdf.js')).default;
-    
-    // Create a clean div with the report content
-    const element = document.createElement('div');
-    const conditionsHTML = data.conditions.map((condition, index) => {
-      const probability = condition.probability || condition.likelihood || "Unknown";
-      const probabilityPercent = getProbabilityPercent(probability);
-      const probabilityColor = probabilityPercent > 70 ? '#ef4444' : probabilityPercent > 40 ? '#f59e0b' : '#22c55e';
-      return `
-        <div style="background: ${index === 0 ? '#fef3c7' : '#f9fafb'}; border: 1px solid ${index === 0 ? '#f59e0b' : '#e5e7eb'}; border-radius: 8px; padding: 15px; margin-bottom: 10px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <h3 style="color: #1f2937; margin: 0; font-size: 16px;">${index + 1}. ${condition.name}</h3>
-            <span style="background: ${probabilityColor}; color: white; padding: 4px 12px; border-radius: 20px; font-size: 14px; font-weight: bold;">${probabilityPercent}%</span>
-          </div>
-          ${condition.description ? `<p style="color: #4b5563; margin: 0; font-size: 14px;">${condition.description}</p>` : ''}
-          <div style="background: #e5e7eb; height: 8px; border-radius: 4px; margin-top: 10px;">
-            <div style="background: ${probabilityColor}; height: 100%; width: ${probabilityPercent}%; border-radius: 4px;"></div>
-          </div>
-        </div>
-      `;
-    }).join('');
+    const html2pdf = (await import("html2pdf.js")).default;
+    const element = document.createElement("div");
+    element.innerHTML = `<style>${reportStyles}</style>${buildReportBody(data)}`;
 
-    element.innerHTML = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
-        <div style="text-align: center; margin-bottom: 30px; padding-bottom: 20px; border-bottom: 3px solid #3b82f6;">
-          <h1 style="color: #1e40af; margin: 0 0 10px 0; font-size: 28px;">${data.title || 'MediBrief Health Report'}</h1>
-          <p style="color: #6b7280; margin: 0;">Generated on ${data.date || new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</p>
-        </div>
-        
-        ${data.inputData ? `
-        <div style="background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 15px; margin-bottom: 20px;">
-          <h2 style="color: #1e40af; margin: 0 0 10px 0; font-size: 18px;">Analysis Input</h2>
-          <p style="color: #374151; margin: 0;">${data.inputData}</p>
-        </div>
-        ` : ''}
-        
-        ${data.summary ? `
-        <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
-          <h2 style="color: #1e40af; margin: 0 0 15px 0; font-size: 20px;">📋 Summary</h2>
-          <p style="color: #374151; line-height: 1.6; margin: 0;">${data.summary}</p>
-        </div>
-        ` : ''}
-        
-        <div style="margin-bottom: 20px;">
-          <h2 style="color: #1e40af; margin: 0 0 15px 0; font-size: 20px;">🔍 Predicted Conditions</h2>
-          ${conditionsHTML}
-        </div>
-        
-        ${data.recommendations && data.recommendations.length > 0 ? `
-        <div style="background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; padding: 20px; margin-bottom: 20px;">
-          <h2 style="color: #047857; margin: 0 0 15px 0; font-size: 18px;">💡 Recommendations</h2>
-          <ul style="color: #374151; margin: 0; padding-left: 20px;">
-            ${data.recommendations.map(rec => `<li style="margin-bottom: 8px;">${rec}</li>`).join('')}
-          </ul>
-        </div>
-        ` : ''}
-        
-        <div style="background: #fef2f2; border: 1px solid #fecaca; border-radius: 8px; padding: 20px; margin-top: 30px;">
-          <h2 style="color: #dc2626; margin: 0 0 10px 0; font-size: 16px;">⚠️ Important Disclaimer</h2>
-          <p style="color: #7f1d1d; margin: 0; font-size: 14px; line-height: 1.5;">
-            ${data.disclaimer || 'This report is generated by an AI system for informational purposes only. It is NOT a substitute for professional medical advice, diagnosis, or treatment. Always consult a qualified healthcare provider for medical concerns.'}
-          </p>
-        </div>
-        
-        <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;">
-          <p style="color: #9ca3af; font-size: 12px;">MediBrief © ${new Date().getFullYear()} - Your Health, Our Priority</p>
-        </div>
-      </div>
-    `;
-    
-    const opt = {
-      margin: [0.5, 0.5, 0.5, 0.5] as [number, number, number, number],
-      filename: `medical-ai-report-${new Date().toISOString().split("T")[0]}.pdf`,
-      image: { type: 'jpeg' as const, quality: 0.98 },
-      html2canvas: { 
-        scale: 2, 
-        useCORS: true,
-        logging: false,
-        letterRendering: true
-      },
-      jsPDF: { unit: 'in' as const, format: 'a4', orientation: 'portrait' as const }
-    };
-    
-    await html2pdf().set(opt).from(element).save();
+    await html2pdf()
+      .set({
+        margin: [0.35, 0.35, 0.35, 0.35] as [number, number, number, number],
+        filename: `medibrief-health-report-${getFileStamp()}.pdf`,
+        image: { type: "jpeg" as const, quality: 0.98 },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+        },
+        jsPDF: { unit: "in" as const, format: "a4", orientation: "portrait" as const },
+      })
+      .from(element)
+      .save();
   } catch (error) {
-    console.error('PDF generation failed, falling back to HTML:', error);
-    // Fallback to HTML download
+    console.error("PDF generation failed, falling back to HTML:", error);
     downloadReportHTML(data);
   }
 };
 
-// Download as HTML
 export const downloadReportHTML = (data: ReportData) => {
   const html = generateReportHTML(data);
   const blob = new Blob([html], { type: "text/html;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `medical-ai-report-${new Date().toISOString().split("T")[0]}.html`;
+  link.download = `medibrief-health-report-${getFileStamp()}.html`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
 
-// Legacy function for backward compatibility
 export const downloadReport = (data: ReportData) => {
-  downloadReportPDF(data);
+  void downloadReportPDF(data);
 };
 
-// Download as plain text
 export const downloadReportText = (data: ReportData) => {
   const text = generateReportText(data);
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `medical-ai-report-${new Date().toISOString().split("T")[0]}.txt`;
+  link.download = `medibrief-health-report-${getFileStamp()}.txt`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 };
 
-// Print report in a new window with professional styling
 export const printReport = (data: ReportData) => {
   const html = generateReportHTML(data);
-  const printWindow = window.open('', '_blank');
+  const printWindow = window.open("", "_blank");
   if (printWindow) {
     printWindow.document.write(html);
     printWindow.document.close();
@@ -717,19 +558,17 @@ export const printReport = (data: ReportData) => {
   }
 };
 
-// Export format type
-export type ExportFormat = 'pdf' | 'html' | 'txt';
+export type ExportFormat = "pdf" | "html" | "txt";
 
-// Unified export function
-export const exportReport = async (data: ReportData, format: ExportFormat = 'pdf') => {
+export const exportReport = async (data: ReportData, format: ExportFormat = "pdf") => {
   switch (format) {
-    case 'pdf':
+    case "pdf":
       await downloadReportPDF(data);
       break;
-    case 'html':
+    case "html":
       downloadReportHTML(data);
       break;
-    case 'txt':
+    case "txt":
       downloadReportText(data);
       break;
     default:

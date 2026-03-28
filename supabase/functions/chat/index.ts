@@ -29,6 +29,32 @@ function validateMessages(messages: unknown): { valid: boolean; error?: string; 
   return { valid: true, sanitized };
 }
 
+function getAiApiKey(): string {
+  const key = Deno.env.get("GOOGLE_GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY");
+  if (!key) {
+    throw new Error("The AI chat service is not configured. Add GOOGLE_GEMINI_API_KEY in your Supabase project secrets.");
+  }
+  return key;
+}
+
+function getProviderErrorMessage(providerName: string, status: number, rawText: string): string {
+  let parsedMessage = rawText;
+
+  try {
+    const parsed = JSON.parse(rawText);
+    const payload = Array.isArray(parsed) ? parsed[0] : parsed;
+    parsedMessage = payload?.error?.message || payload?.message || rawText;
+  } catch {
+    parsedMessage = rawText;
+  }
+
+  if (status === 429) {
+    return `${providerName} quota exceeded or rate limited. ${parsedMessage}`;
+  }
+
+  return `${providerName} error ${status}. ${parsedMessage}`;
+}
+
 const systemPrompt = `You are a helpful and empathetic medical AI assistant. You provide general health information, explain medical concepts, and offer guidance on health-related questions.
 
 IMPORTANT GUIDELINES:
@@ -52,20 +78,16 @@ You can help with:
 Always end responses about symptoms or conditions with a reminder to consult a healthcare professional.`;
 
 async function getStreamingResponse(messages: Array<{ role: string; content: string }>): Promise<Response> {
+  const apiKey = getAiApiKey();
   const providers = [
     {
-      name: "Google Gemini Direct",
+      name: "Google Gemini",
       url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      key: Deno.env.get("GOOGLE_GEMINI_API_KEY"),
+      key: apiKey,
       model: "gemini-2.0-flash",
     },
-    {
-      name: "Lovable AI Gateway",
-      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-      key: Deno.env.get("LOVABLE_API_KEY"),
-      model: "google/gemini-3-flash-preview",
-    },
   ];
+  let lastErrorMessage = "";
 
   for (const provider of providers) {
     if (!provider.key) { console.log(`Skipping ${provider.name}: no API key`); continue; }
@@ -80,13 +102,26 @@ async function getStreamingResponse(messages: Array<{ role: string; content: str
           stream: true,
         }),
       });
-      if (response.status === 429 || response.status === 402) { console.log(`${provider.name} error ${response.status}, trying next...`); continue; }
-      if (!response.ok) { const t = await response.text(); console.error(`${provider.name} error:`, response.status, t); continue; }
+      if (response.status === 429 || response.status === 402) {
+        const t = await response.text();
+        lastErrorMessage = getProviderErrorMessage(provider.name, response.status, t);
+        console.log(`${provider.name} error ${response.status}, trying next...`);
+        continue;
+      }
+      if (!response.ok) {
+        const t = await response.text();
+        lastErrorMessage = getProviderErrorMessage(provider.name, response.status, t);
+        console.error(`${provider.name} error:`, response.status, t);
+        continue;
+      }
       console.log(`${provider.name} succeeded`);
       return response;
-    } catch (err) { console.error(`${provider.name} failed:`, err); }
+    } catch (err) {
+      lastErrorMessage = err instanceof Error ? err.message : `${provider.name} request failed`;
+      console.error(`${provider.name} failed:`, err);
+    }
   }
-  throw new Error("All AI providers failed");
+  throw new Error(lastErrorMessage || "All AI providers failed");
 }
 
 serve(async (req) => {
@@ -114,7 +149,10 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Chat error:", error);
-    return new Response(JSON.stringify({ error: "An error occurred while processing your request" }),
+    const message = error instanceof Error
+      ? error.message
+      : "An error occurred while processing your request";
+    return new Response(JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

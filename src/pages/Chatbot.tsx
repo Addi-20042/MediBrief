@@ -51,14 +51,21 @@ const Chatbot = () => {
   }, [messages]);
 
   const streamChat = async (userMessages: Message[]) => {
-    const CHAT_URL = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat`;
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const publishableKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+    if (!supabaseUrl || !publishableKey) {
+      throw new Error("Supabase environment variables are missing. Check your project configuration.");
+    }
+
+    const CHAT_URL = `${supabaseUrl}/functions/v1/chat`;
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      apikey: publishableKey,
+    };
     
     // Add auth header if user is logged in, but don't require it
     const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      headers.Authorization = `Bearer ${session.access_token}`;
-    }
+    headers.Authorization = `Bearer ${session?.access_token ?? publishableKey}`;
     
     const response = await withRetry(
       () => withTimeout(
@@ -73,6 +80,7 @@ const Chatbot = () => {
       1,
       "chat"
     );
+    if (response.status === 404) throw new Error("Chat service is not deployed yet. Deploy the Supabase edge functions for this project.");
     if (response.status === 429) throw new Error("Rate limit exceeded. Please try again in a moment.");
     if (response.status === 402) throw new Error("Service temporarily unavailable. Please try again later.");
     if (!response.ok) { const errorData = await response.json().catch(() => ({})); throw new Error(errorData.error || "Failed to get response"); }

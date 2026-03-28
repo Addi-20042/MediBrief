@@ -18,15 +18,14 @@ import {
   User,
   LogOut,
   History,
-  LayoutDashboard,
   Settings,
   Heart,
-  ChevronDown,
   Siren,
+  Shield,
 } from "lucide-react";
 
 const Header = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -36,21 +35,21 @@ const Header = () => {
     navigate("/");
   };
 
-  // Simplified nav - only core features visible
-  const mainNavLinks = [
+  const baseNavLinks = [
+    ...(user ? [{ href: "/dashboard", label: "Dashboard" }] : []),
     { href: "/symptoms", label: "Symptoms" },
     { href: "/upload", label: "Reports" },
     { href: "/chatbot", label: "AI Chat" },
   ];
 
-  // Emergency dropdown items
-  const emergencyLinks = [
+  const helpLinks = [
     { href: "/emergency", label: "Emergency Contacts" },
     { href: "/first-aid", label: "First Aid Guide" },
+    { href: "/learn", label: "Disease Library" },
   ];
 
   const isActive = (path: string) => location.pathname === path;
-  const isEmergencyActive = emergencyLinks.some(link => location.pathname === link.href);
+  const isHelpActive = helpLinks.some(link => location.pathname === link.href);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur-lg">
@@ -67,7 +66,7 @@ const Header = () => {
 
         {/* Desktop Navigation - Simplified */}
         <nav className="hidden md:flex items-center gap-1">
-          {mainNavLinks.map((link) => (
+          {baseNavLinks.map((link) => (
             <Link key={link.href} to={link.href}>
               <Button
                 variant={isActive(link.href) ? "default" : "ghost"}
@@ -77,36 +76,6 @@ const Header = () => {
               </Button>
             </Link>
           ))}
-          
-          {/* Emergency Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant={isEmergencyActive ? "default" : "ghost"} 
-                size="sm" 
-                className="gap-1"
-              >
-                <Siren className="h-4 w-4" />
-                Help
-                <ChevronDown className="h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48 bg-popover border">
-              {emergencyLinks.map((link) => (
-                <DropdownMenuItem key={link.href} asChild>
-                  <Link to={link.href} className="cursor-pointer">
-                    {link.label}
-                  </Link>
-                </DropdownMenuItem>
-              ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <Link to="/learn" className="cursor-pointer">
-                  Disease Library
-                </Link>
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
         </nav>
 
         {/* Theme Toggle & Auth Buttons */}
@@ -129,12 +98,6 @@ const Header = () => {
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link to="/dashboard" className="flex items-center gap-2 cursor-pointer">
-                    <LayoutDashboard className="h-4 w-4" />
-                    Dashboard
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
                   <Link to="/health-tracking" className="flex items-center gap-2 cursor-pointer">
                     <Heart className="h-4 w-4" />
                     Health Tracking
@@ -146,12 +109,29 @@ const Header = () => {
                     My History
                   </Link>
                 </DropdownMenuItem>
+                {isAdmin && (
+                  <DropdownMenuItem asChild>
+                    <Link to="/admin" className="flex items-center gap-2 cursor-pointer">
+                      <Shield className="h-4 w-4" />
+                      Admin Console
+                    </Link>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem asChild>
                   <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
                     <Settings className="h-4 w-4" />
                     Settings
                   </Link>
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                {helpLinks.map((link) => (
+                  <DropdownMenuItem key={link.href} asChild>
+                    <Link to={link.href} className="flex items-center gap-2 cursor-pointer">
+                      <Siren className="h-4 w-4" />
+                      {link.label}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem onClick={handleSignOut} className="text-destructive cursor-pointer">
                   <LogOut className="h-4 w-4 mr-2" />
@@ -190,7 +170,7 @@ const Header = () => {
         mobileMenuOpen ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0 border-t-0"
       )}>
         <nav className="container py-3 flex flex-col gap-1">
-            {mainNavLinks.map((link) => (
+            {baseNavLinks.map((link) => (
               <Link
                 key={link.href}
                 to={link.href}
@@ -205,23 +185,47 @@ const Header = () => {
                 </Button>
               </Link>
             ))}
-            <div className="border-t border-border my-1" />
-            {emergencyLinks.map((link) => (
-              <Link
-                key={link.href}
-                to={link.href}
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <Button variant="ghost" className="w-full justify-start" size="sm">
-                  {link.label}
+            {(user || isHelpActive) && <div className="border-t border-border my-1" />}
+            {user && (
+              <>
+                {helpLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Button variant={isActive(link.href) ? "secondary" : "ghost"} className="w-full justify-start" size="sm">
+                      <Siren className="h-4 w-4 mr-2" />
+                      {link.label}
+                    </Button>
+                  </Link>
+                ))}
+              </>
+            )}
+            {!user && (
+              <>
+                {helpLinks.map((link) => (
+                  <Link
+                    key={link.href}
+                    to={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Button variant={isActive(link.href) ? "secondary" : "ghost"} className="w-full justify-start" size="sm">
+                      <Siren className="h-4 w-4 mr-2" />
+                      {link.label}
+                    </Button>
+                  </Link>
+                ))}
+              </>
+            )}
+            {user && isAdmin && (
+              <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>
+                <Button variant={isActive("/admin") ? "secondary" : "ghost"} className="w-full justify-start" size="sm">
+                  <Shield className="h-4 w-4 mr-2" />
+                  Admin Console
                 </Button>
               </Link>
-            ))}
-            <Link to="/learn" onClick={() => setMobileMenuOpen(false)}>
-              <Button variant="ghost" className="w-full justify-start" size="sm">
-                Disease Library
-              </Button>
-            </Link>
+            )}
             {!user && (
               <>
                 <div className="border-t border-border my-1" />

@@ -64,14 +64,14 @@ const UploadReport = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [pdfBase64, setPdfBase64] = useState<string | null>(null);
+  const [uploadedFile, setUploadedFile] = useState<{ base64: string; mimeType: string } | null>(null);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setFileName(file.name);
-    setPdfBase64(null);
+    setUploadedFile(null);
 
     if (file.type === "text/plain") {
       const text = await file.text();
@@ -86,8 +86,8 @@ const UploadReport = () => {
           binary += String.fromCharCode(bytes[i]);
         }
         const base64 = btoa(binary);
-        setPdfBase64(base64);
-        setReportText(`📄 PDF uploaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)\n\nThe PDF will be processed using AI-powered text extraction when you click Analyze.`);
+        setUploadedFile({ base64, mimeType: file.type });
+        setReportText(`PDF uploaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)\n\nThe document will be processed with text extraction when you click Analyze.`);
         toast({
           title: "PDF Ready",
           description: "Your PDF has been loaded. Click 'Analyze Report' to extract and analyze its contents.",
@@ -108,8 +108,8 @@ const UploadReport = () => {
           binary += String.fromCharCode(bytes[i]);
         }
         const base64 = btoa(binary);
-        setPdfBase64(base64);
-        setReportText(`🖼️ Image uploaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)\n\nThe image will be processed using AI-powered text extraction when you click Analyze.`);
+        setUploadedFile({ base64, mimeType: file.type });
+        setReportText(`Image uploaded: ${file.name} (${(file.size / 1024).toFixed(1)} KB)\n\nThe image will be processed with text extraction when you click Analyze.`);
         toast({
           title: "Image Ready",
           description: "Your image has been loaded. Click 'Analyze Report' to extract and analyze its contents.",
@@ -144,8 +144,8 @@ const UploadReport = () => {
     setResult(null);
 
     try {
-      const requestBody = pdfBase64
-        ? { pdfBase64 }
+      const requestBody = uploadedFile
+        ? { fileBase64: uploadedFile.base64, fileMimeType: uploadedFile.mimeType }
         : { reportText: reportText.trim() };
       
       const response = await withRetry(
@@ -232,7 +232,7 @@ const UploadReport = () => {
   const clearFile = () => {
     setFileName("");
     setReportText("");
-    setPdfBase64(null);
+    setUploadedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }

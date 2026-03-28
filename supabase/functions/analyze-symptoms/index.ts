@@ -21,21 +21,43 @@ function validateSymptoms(symptoms: unknown): { valid: boolean; error?: string; 
   return { valid: true, sanitized: sanitizeText(trimmed) };
 }
 
+function getAiApiKey(): string {
+  const key = Deno.env.get("GOOGLE_GEMINI_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY");
+  if (!key) {
+    throw new Error("The AI analysis service is not configured. Add GOOGLE_GEMINI_API_KEY in your Supabase project secrets.");
+  }
+  return key;
+}
+
+function getProviderErrorMessage(providerName: string, status: number, rawText: string): string {
+  let parsedMessage = rawText;
+
+  try {
+    const parsed = JSON.parse(rawText);
+    const payload = Array.isArray(parsed) ? parsed[0] : parsed;
+    parsedMessage = payload?.error?.message || payload?.message || rawText;
+  } catch {
+    parsedMessage = rawText;
+  }
+
+  if (status === 429) {
+    return `${providerName} quota exceeded or rate limited. ${parsedMessage}`;
+  }
+
+  return `${providerName} error ${status}. ${parsedMessage}`;
+}
+
 async function callAI(systemPrompt: string, userPrompt: string): Promise<string> {
+  const apiKey = getAiApiKey();
   const providers = [
     {
-      name: "Google Gemini Direct",
+      name: "Google Gemini",
       url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-      key: Deno.env.get("GOOGLE_GEMINI_API_KEY"),
+      key: apiKey,
       model: "gemini-2.0-flash",
     },
-    {
-      name: "Lovable AI Gateway",
-      url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-      key: Deno.env.get("LOVABLE_API_KEY"),
-      model: "google/gemini-3-flash-preview",
-    },
   ];
+  let lastErrorMessage = "";
 
   for (const provider of providers) {
     if (!provider.key) { console.log(`Skipping ${provider.name}: no API key`); continue; }
@@ -50,14 +72,28 @@ async function callAI(systemPrompt: string, userPrompt: string): Promise<string>
           temperature: 0.2,
         }),
       });
-      if (response.status === 429 || response.status === 402) { console.log(`${provider.name} error ${response.status}, trying next...`); continue; }
-      if (!response.ok) { const t = await response.text(); console.error(`${provider.name} error:`, response.status, t); continue; }
+      if (response.status === 429 || response.status === 402) {
+        const t = await response.text();
+        lastErrorMessage = getProviderErrorMessage(provider.name, response.status, t);
+        console.log(`${provider.name} error ${response.status}, trying next...`);
+        continue;
+      }
+      if (!response.ok) {
+        const t = await response.text();
+        lastErrorMessage = getProviderErrorMessage(provider.name, response.status, t);
+        console.error(`${provider.name} error:`, response.status, t);
+        continue;
+      }
       const data = await response.json();
       const content = data.choices?.[0]?.message?.content;
       if (content) { console.log(`${provider.name} succeeded`); return content; }
-    } catch (err) { console.error(`${provider.name} failed:`, err); }
+      lastErrorMessage = `${provider.name} returned an empty response.`;
+    } catch (err) {
+      lastErrorMessage = err instanceof Error ? err.message : `${provider.name} request failed`;
+      console.error(`${provider.name} failed:`, err);
+    }
   }
-  throw new Error("All AI providers failed");
+  throw new Error(lastErrorMessage || "All AI providers failed");
 }
 
 serve(async (req) => {
@@ -166,7 +202,10 @@ Provide 4-7 possible conditions ranked by likelihood. Be thorough, accurate, and
       { headers: { ...corsHeaders, "Content-Type": "application/json" } });
   } catch (error) {
     console.error("Error analyzing symptoms:", error);
-    return new Response(JSON.stringify({ error: "An error occurred while processing your request" }),
+    const message = error instanceof Error
+      ? error.message
+      : "An error occurred while processing your request";
+    return new Response(JSON.stringify({ error: message }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   }
 });

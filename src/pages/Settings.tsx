@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "next-themes";
+import { normalizePatientName, normalizePhoneNumber } from "@/lib/profileValidation";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
@@ -65,7 +66,26 @@ const Settings = () => {
     if (!user) return;
     setSaving(true);
     try {
-      const { error } = await supabase.from("profiles").update({ full_name: fullName.trim() || null, phone_number: phoneNumber.trim() || null } as any).eq("user_id", user.id);
+      const trimmedName = fullName.trim();
+      const trimmedPhoneNumber = phoneNumber.trim();
+
+      if (trimmedName && /[0-9]/.test(trimmedName)) {
+        toast({
+          title: "Invalid patient name",
+          description: "Patient name can only contain letters.",
+          variant: "destructive",
+        });
+        setSaving(false);
+        return;
+      }
+
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: trimmedName ? normalizePatientName(trimmedName) : null,
+          phone_number: trimmedPhoneNumber ? normalizePhoneNumber(trimmedPhoneNumber) : null,
+        } as any)
+        .eq("user_id", user.id);
       if (error) throw error;
       toast({ title: "Settings saved", description: "Your profile has been updated successfully." });
     } catch (error) {

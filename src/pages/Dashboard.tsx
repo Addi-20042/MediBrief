@@ -57,12 +57,12 @@ const fetchDashboardData = async (userId: string) => {
       .maybeSingle(),
     supabase
       .from("medication_reminders")
-      .select("id")
+      .select("id, reminder_times")
       .eq("user_id", userId)
       .eq("is_active", true),
     supabase
       .from("medication_logs")
-      .select("reminder_id")
+      .select("reminder_id, scheduled_time")
       .eq("user_id", userId)
       .gte("taken_at", `${today}T00:00:00`)
       .lte("taken_at", `${today}T23:59:59`),
@@ -117,7 +117,12 @@ const fetchDashboardData = async (userId: string) => {
   if (thisMonthPredictions.length > 0) healthScore += 5;
   healthScore = Math.max(10, Math.min(100, healthScore));
 
-  const uniqueLoggedMeds = new Set(logsRes.data?.map((l) => l.reminder_id) || []);
+  const uniqueLoggedDoses = new Set(
+    (logsRes.data || []).map((log) => `${log.reminder_id}:${log.scheduled_time || "default"}`),
+  );
+  const totalDoses = (remindersRes.data || []).reduce((sum, reminder) => (
+    sum + Math.max(reminder.reminder_times?.length || 0, 1)
+  ), 0);
 
   return {
     predictions: allPredictions,
@@ -134,8 +139,8 @@ const fetchDashboardData = async (userId: string) => {
     todayMetrics: {
       steps: metricsRes.data?.steps || null,
       water_intake: metricsRes.data?.water_intake || null,
-      medications_logged: uniqueLoggedMeds.size,
-      medications_total: remindersRes.data?.length || 0,
+      medications_logged: uniqueLoggedDoses.size,
+      medications_total: totalDoses,
     },
   };
 };

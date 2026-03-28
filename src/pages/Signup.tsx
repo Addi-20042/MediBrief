@@ -9,12 +9,18 @@ import { useToast } from "@/hooks/use-toast";
 import { Activity, Loader2, Mail, Lock, User, Chrome, ShieldCheck, Stethoscope, Brain, Phone, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { z } from "zod";
+import {
+  normalizePatientName,
+  normalizePhoneNumber,
+  optionalPhoneSchema,
+  patientNameSchema,
+} from "@/lib/profileValidation";
 
 const signupSchema = z.object({
-  fullName: z.string().trim().min(2, "Name must be at least 2 characters").max(100, "Name is too long"),
+  fullName: patientNameSchema,
   email: z.string().trim().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
-  phoneNumber: z.string().optional(),
+  phoneNumber: optionalPhoneSchema,
 });
 
 const Signup = () => {
@@ -52,9 +58,14 @@ const Signup = () => {
       return;
     }
 
+    const normalizedFullName = normalizePatientName(result.data.fullName);
+    const normalizedPhoneNumber = result.data.phoneNumber?.trim()
+      ? normalizePhoneNumber(result.data.phoneNumber)
+      : "";
+
     setLoading(true);
     try {
-      const { error } = await signUp(email, password, fullName);
+      const { error } = await signUp(email, password, normalizedFullName);
       if (error) {
         let message = error.message;
         if (message.includes("already registered") || message.includes("already been registered")) {
@@ -69,7 +80,23 @@ const Signup = () => {
           try {
             const { data: { user: newUser } } = await supabase.auth.getUser();
             if (newUser) {
-              await supabase.from("profiles").update({ phone_number: phoneNumber.trim() } as any).eq("user_id", newUser.id);
+              await supabase
+                .from("profiles")
+                .update({
+                  full_name: normalizedFullName,
+                  phone_number: normalizedPhoneNumber,
+                } as any)
+                .eq("user_id", newUser.id);
+            }
+          } catch (_) {}
+        } else {
+          try {
+            const { data: { user: newUser } } = await supabase.auth.getUser();
+            if (newUser) {
+              await supabase
+                .from("profiles")
+                .update({ full_name: normalizedFullName } as any)
+                .eq("user_id", newUser.id);
             }
           } catch (_) {}
         }
@@ -180,6 +207,7 @@ const Signup = () => {
                 <Input id="fullName" type="text" placeholder="John Doe" value={fullName} onChange={(e) => setFullName(e.target.value)} className="pl-10 h-11" disabled={loading} autoComplete="name" />
               </div>
               {errors.fullName && <p className="text-sm text-destructive">{errors.fullName}</p>}
+              <p className="text-xs text-muted-foreground">Use letters only for the patient name</p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -195,6 +223,7 @@ const Signup = () => {
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input id="phone" type="tel" placeholder="+91 9876543210" value={phoneNumber} onChange={(e) => setPhoneNumber(e.target.value)} className="pl-10 h-11" disabled={loading} autoComplete="tel" />
               </div>
+              {errors.phoneNumber && <p className="text-sm text-destructive">{errors.phoneNumber}</p>}
               <p className="text-xs text-muted-foreground">For medication reminder SMS notifications</p>
             </div>
             <div className="space-y-2">

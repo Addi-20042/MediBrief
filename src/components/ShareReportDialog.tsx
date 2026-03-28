@@ -21,7 +21,7 @@ interface ShareReportDialogProps {
   reportData: {
     type: string;
     input: string;
-    predictions: any[];
+    predictions: unknown[];
     summary?: string;
     date: string;
   };
@@ -42,7 +42,7 @@ const ShareReportDialog = ({ reportData, trigger }: ShareReportDialogProps) => {
 
   const handleSend = async () => {
     setError("");
-    
+
     const result = emailSchema.safeParse(email);
     if (!result.success) {
       setError(result.error.errors[0].message);
@@ -52,7 +52,7 @@ const ShareReportDialog = ({ reportData, trigger }: ShareReportDialogProps) => {
     setSending(true);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("send-report-email", {
+      const { error: fnError } = await supabase.functions.invoke("send-report-email", {
         body: {
           to: email,
           doctorName: doctorName.trim() || undefined,
@@ -69,7 +69,6 @@ const ShareReportDialog = ({ reportData, trigger }: ShareReportDialogProps) => {
         description: `Your health report has been sent to ${email}`,
       });
 
-      // Reset after 2 seconds
       setTimeout(() => {
         setOpen(false);
         setSent(false);
@@ -77,20 +76,25 @@ const ShareReportDialog = ({ reportData, trigger }: ShareReportDialogProps) => {
         setDoctorName("");
         setPatientNote("");
       }, 2000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error sending email:", err);
-      
-      // Parse edge function error response
+
       let errorMessage = "There was an error sending the report. Please try again.";
       try {
-        if (err?.context?.body) {
-          const body = typeof err.context.body === 'string' ? JSON.parse(err.context.body) : err.context.body;
+        const maybeError = err as { context?: { body?: string | { error?: string } }; message?: string };
+        if (maybeError?.context?.body) {
+          const body =
+            typeof maybeError.context.body === "string"
+              ? JSON.parse(maybeError.context.body)
+              : maybeError.context.body;
           if (body?.error) errorMessage = body.error;
-        } else if (err?.message) {
-          errorMessage = err.message;
+        } else if (maybeError?.message) {
+          errorMessage = maybeError.message;
         }
-      } catch {}
-      
+      } catch {
+        // Keep the generic fallback message if the error payload cannot be parsed.
+      }
+
       toast({
         title: "Failed to send",
         description: errorMessage,
@@ -177,14 +181,15 @@ const ShareReportDialog = ({ reportData, trigger }: ShareReportDialogProps) => {
               <div className="rounded-lg bg-muted/50 p-3 text-sm">
                 <p className="font-medium mb-1">Report includes:</p>
                 <ul className="text-muted-foreground space-y-1">
-                  <li>• Analysis type: {reportData.type === "symptom" ? "Symptom Analysis" : "Report Analysis"}</li>
-                  <li>• {reportData.predictions?.length || 0} predicted conditions</li>
-                  <li>• Date: {reportData.date}</li>
-                  {reportData.summary && <li>• AI-generated summary</li>}
+                  <li>- Analysis type: {reportData.type === "symptom" ? "Symptom Analysis" : "Report Analysis"}</li>
+                  <li>- {reportData.predictions?.length || 0} follow-up topics</li>
+                  <li>- Date: {reportData.date}</li>
+                  {reportData.summary && <li>- Plain-language overview</li>}
                 </ul>
               </div>
+
               <div className="rounded-lg bg-primary/5 border border-primary/20 p-3 text-sm">
-                <p className="font-medium text-primary mb-1">📧 Email Info</p>
+                <p className="font-medium text-primary mb-1">Email Info</p>
                 <p className="text-muted-foreground">
                   The report will be sent from MediBrief's shared email address. The recipient will receive a professionally formatted health report.
                 </p>
