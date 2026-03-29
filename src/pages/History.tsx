@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -16,19 +16,16 @@ import {
   FileText,
   Trash2,
   Calendar,
-  AlertCircle,
 } from "lucide-react";
 import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
+import type { PredictionRow } from "@/lib/healthData";
+import { getPredictionDiseaseName, toPredictionDiseases } from "@/lib/healthData";
 
-interface Prediction {
-  id: string;
-  prediction_type: string;
-  input_data: string;
-  predicted_diseases: any;
-  summary: string | null;
-  created_at: string;
-}
+type Prediction = Pick<
+  PredictionRow,
+  "id" | "prediction_type" | "input_data" | "predicted_diseases" | "summary" | "created_at"
+>;
 
 const HistoryPage = () => {
   const [predictions, setPredictions] = useState<Prediction[]>([]);
@@ -37,21 +34,14 @@ const HistoryPage = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-    fetchPredictions();
-  }, [user, navigate]);
-
-  const fetchPredictions = async () => {
+  const fetchPredictions = useCallback(async () => {
     if (!user) return;
     try {
       const { data, error } = await supabase
         .from("predictions")
         .select("*")
         .eq("user_id", user.id)
+        .eq("is_hidden", false)
         .order("created_at", { ascending: false });
       if (error) throw error;
       setPredictions(data || []);
@@ -61,7 +51,16 @@ const HistoryPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast, user]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    void fetchPredictions();
+  }, [fetchPredictions, navigate, user]);
 
   const deletePrediction = async (id: string) => {
     try {
@@ -126,67 +125,71 @@ const HistoryPage = () => {
               </motion.div>
             ) : (
               <StaggerContainer className="space-y-4" staggerDelay={0.06}>
-                {predictions.map((prediction) => (
-                  <StaggerItem key={prediction.id}>
-                    <Card className="border-border/50 hover:shadow-md transition-all duration-300">
-                      <CardHeader className="pb-2">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-3">
-                            <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-                              prediction.prediction_type === "symptom"
-                                ? "bg-primary/10 text-primary"
-                                : "bg-info/10 text-info"
-                            }`}>
-                              {prediction.prediction_type === "symptom" ? <Stethoscope className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+                {predictions.map((prediction) => {
+                  const diseases = toPredictionDiseases(prediction.predicted_diseases);
+
+                  return (
+                    <StaggerItem key={prediction.id}>
+                      <Card className="border-border/50 hover:shadow-md transition-all duration-300">
+                        <CardHeader className="pb-2">
+                          <div className="flex items-start justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${
+                                prediction.prediction_type === "symptom"
+                                  ? "bg-primary/10 text-primary"
+                                  : "bg-info/10 text-info"
+                              }`}>
+                                {prediction.prediction_type === "symptom" ? <Stethoscope className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+                              </div>
+                              <div>
+                                <CardTitle className="text-lg">
+                                  {prediction.prediction_type === "symptom" ? "Symptom Analysis" : "Report Analysis"}
+                                </CardTitle>
+                                <CardDescription className="flex items-center gap-1">
+                                  <Calendar className="h-3 w-3" />
+                                  {format(new Date(prediction.created_at), "PPp")}
+                                </CardDescription>
+                              </div>
                             </div>
-                            <div>
-                              <CardTitle className="text-lg">
-                                {prediction.prediction_type === "symptom" ? "Symptom Analysis" : "Report Analysis"}
-                              </CardTitle>
-                              <CardDescription className="flex items-center gap-1">
-                                <Calendar className="h-3 w-3" />
-                                {format(new Date(prediction.created_at), "PPp")}
-                              </CardDescription>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => deletePrediction(prediction.id)}
+                              className="text-muted-foreground hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => deletePrediction(prediction.id)}
-                            className="text-muted-foreground hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="mb-3">
-                          <p className="text-sm font-medium text-muted-foreground mb-1">Input:</p>
-                          <p className="text-sm line-clamp-2">{prediction.input_data}</p>
-                        </div>
-                        {prediction.summary && (
+                        </CardHeader>
+                        <CardContent>
                           <div className="mb-3">
-                            <p className="text-sm font-medium text-muted-foreground mb-1">Summary:</p>
-                            <p className="text-sm text-muted-foreground line-clamp-2">{prediction.summary}</p>
+                            <p className="text-sm font-medium text-muted-foreground mb-1">Input:</p>
+                            <p className="text-sm line-clamp-2">{prediction.input_data}</p>
                           </div>
-                        )}
-                        {prediction.predicted_diseases && prediction.predicted_diseases.length > 0 && (
-                          <div>
-                            <p className="text-sm font-medium text-muted-foreground mb-2">Conditions:</p>
-                            <div className="flex flex-wrap gap-2">
-                              {prediction.predicted_diseases.slice(0, 5).map((disease: any, index: number) => (
-                                <Badge key={index} variant="secondary">{disease.name || disease}</Badge>
-                              ))}
-                              {prediction.predicted_diseases.length > 5 && (
-                                <Badge variant="outline">+{prediction.predicted_diseases.length - 5} more</Badge>
-                              )}
+                          {prediction.summary && (
+                            <div className="mb-3">
+                              <p className="text-sm font-medium text-muted-foreground mb-1">Summary:</p>
+                              <p className="text-sm text-muted-foreground line-clamp-2">{prediction.summary}</p>
                             </div>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </StaggerItem>
-                ))}
+                          )}
+                          {diseases.length > 0 && (
+                            <div>
+                              <p className="text-sm font-medium text-muted-foreground mb-2">Conditions:</p>
+                              <div className="flex flex-wrap gap-2">
+                                {diseases.slice(0, 5).map((disease, index) => (
+                                  <Badge key={index} variant="secondary">{getPredictionDiseaseName(disease)}</Badge>
+                                ))}
+                                {diseases.length > 5 && (
+                                  <Badge variant="outline">+{diseases.length - 5} more</Badge>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    </StaggerItem>
+                  );
+                })}
               </StaggerContainer>
             )}
           </div>

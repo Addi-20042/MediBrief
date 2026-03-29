@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +13,7 @@ import {
   ThermometerSun, Bone, Brain, HeartPulse, Siren, ArrowRight, Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { listPublishedCustomFirstAidGuides } from "@/lib/adminContent";
 
 interface FirstAidGuide {
   id: string; title: string; icon: React.ReactNode; severity: "critical" | "high" | "medium";
@@ -56,7 +58,35 @@ const firstAidGuides: FirstAidGuide[] = [
 
 const FirstAid = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const filteredGuides = firstAidGuides.filter((g) =>
+  const customGuidesQuery = useQuery({
+    queryKey: ["published-custom-first-aid"],
+    queryFn: listPublishedCustomFirstAidGuides,
+  });
+
+  const customGuides = useMemo(
+    () =>
+      (customGuidesQuery.data || []).map((guide) => ({
+        id: `custom-first-aid-${guide.id}`,
+        title: guide.title,
+        overview: guide.overview,
+        severity: guide.severity,
+        steps: guide.steps,
+        doNot: guide.do_not,
+        icon:
+          guide.severity === "critical" ? (
+            <Siren className="h-5 w-5" />
+          ) : guide.severity === "high" ? (
+            <AlertTriangle className="h-5 w-5" />
+          ) : (
+            <HeartPulse className="h-5 w-5" />
+          ),
+      })),
+    [customGuidesQuery.data],
+  );
+
+  const allGuides = useMemo(() => [...firstAidGuides, ...customGuides], [customGuides]);
+
+  const filteredGuides = allGuides.filter((g) =>
     g.title.toLowerCase().includes(searchQuery.toLowerCase()) || g.overview.toLowerCase().includes(searchQuery.toLowerCase())
   );
   const criticalGuides = filteredGuides.filter(g => g.severity === "critical");

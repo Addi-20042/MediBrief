@@ -86,6 +86,60 @@ export type Database = {
         }
         Relationships: []
       }
+      app_feature_cards: {
+        Row: {
+          badge: string | null
+          created_at: string
+          created_by: string | null
+          cta_label: string | null
+          description: string
+          details: string | null
+          display_order: number
+          href: string | null
+          icon_name: string
+          id: string
+          is_external: boolean
+          is_published: boolean
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          badge?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          description: string
+          details?: string | null
+          display_order?: number
+          href?: string | null
+          icon_name?: string
+          id?: string
+          is_external?: boolean
+          is_published?: boolean
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          badge?: string | null
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string | null
+          description?: string
+          details?: string | null
+          display_order?: number
+          href?: string | null
+          icon_name?: string
+          id?: string
+          is_external?: boolean
+          is_published?: boolean
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       chat_history: {
         Row: {
           created_at: string
@@ -107,6 +161,153 @@ export type Database = {
           messages?: Json
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      custom_diseases: {
+        Row: {
+          causes: string[]
+          category: string
+          created_at: string
+          created_by: string | null
+          description: string
+          display_order: number
+          id: string
+          is_published: boolean
+          name: string
+          prevention: string[]
+          risk_factors: string[]
+          symptoms: string[]
+          treatment: string[]
+          updated_at: string
+          updated_by: string | null
+          when_to_see_doctor: string
+        }
+        Insert: {
+          causes?: string[]
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description: string
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          name: string
+          prevention?: string[]
+          risk_factors?: string[]
+          symptoms?: string[]
+          treatment?: string[]
+          updated_at?: string
+          updated_by?: string | null
+          when_to_see_doctor?: string
+        }
+        Update: {
+          causes?: string[]
+          category?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          name?: string
+          prevention?: string[]
+          risk_factors?: string[]
+          symptoms?: string[]
+          treatment?: string[]
+          updated_at?: string
+          updated_by?: string | null
+          when_to_see_doctor?: string
+        }
+        Relationships: []
+      }
+      custom_emergency_contacts: {
+        Row: {
+          country: string | null
+          created_at: string
+          created_by: string | null
+          description: string
+          display_order: number
+          id: string
+          is_published: boolean
+          name: string
+          number: string
+          priority: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          description: string
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          name: string
+          number: string
+          priority?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          country?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string
+          display_order?: number
+          id?: string
+          is_published?: boolean
+          name?: string
+          number?: string
+          priority?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
+      custom_first_aid_guides: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          display_order: number
+          do_not: string[]
+          id: string
+          is_published: boolean
+          overview: string
+          severity: string
+          steps: string[]
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          do_not?: string[]
+          id?: string
+          is_published?: boolean
+          overview: string
+          severity?: string
+          steps?: string[]
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          display_order?: number
+          do_not?: string[]
+          id?: string
+          is_published?: boolean
+          overview?: string
+          severity?: string
+          steps?: string[]
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }

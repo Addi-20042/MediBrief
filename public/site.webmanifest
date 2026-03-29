@@ -1,0 +1,16 @@
+{
+  "name": "MediBrief",
+  "short_name": "MediBrief",
+  "description": "AI-powered health assistant for symptoms, reports, first aid, and health tracking.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#0f766e",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48 32x32 16x16",
+      "type": "image/x-icon"
+    }
+  ]
+}

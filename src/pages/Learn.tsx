@@ -1,11 +1,13 @@
-import { useState, useRef, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { diseases, diseaseCategories, Disease } from "@/lib/diseases";
+import { diseases, Disease } from "@/lib/diseases";
+import { listPublishedCustomDiseases, mapCustomDiseaseToDisease } from "@/lib/adminContent";
 import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerContainer";
@@ -62,7 +64,28 @@ const Learn = () => {
   const [selectedDisease, setSelectedDisease] = useState<Disease | null>(null);
   const isMobile = useIsMobile();
 
-  const filteredDiseases = diseases.filter((disease) => {
+  const customDiseasesQuery = useQuery({
+    queryKey: ["published-custom-diseases"],
+    queryFn: listPublishedCustomDiseases,
+  });
+
+  const allDiseases = useMemo(
+    () => [...diseases, ...(customDiseasesQuery.data || []).map(mapCustomDiseaseToDisease)],
+    [customDiseasesQuery.data],
+  );
+
+  const allCategories = useMemo(
+    () => ["All", ...Array.from(new Set(allDiseases.map((disease) => disease.category))).sort()],
+    [allDiseases],
+  );
+
+  useEffect(() => {
+    if (!allCategories.includes(selectedCategory)) {
+      setSelectedCategory("All");
+    }
+  }, [allCategories, selectedCategory]);
+
+  const filteredDiseases = allDiseases.filter((disease) => {
     const matchesSearch =
       disease.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       disease.symptoms.some((s) => s.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -113,7 +136,7 @@ const Learn = () => {
               </div>
 
               <div className="flex flex-wrap gap-2 mb-6">
-                {diseaseCategories.map((category) => (
+                {allCategories.map((category) => (
                   <Button key={category} variant={selectedCategory === category ? "default" : "outline"} size="sm"
                     onClick={() => setSelectedCategory(category)}
                     className={`${selectedCategory === category ? "gradient-primary text-primary-foreground" : ""} transition-all duration-200`}
@@ -123,7 +146,7 @@ const Learn = () => {
                 ))}
               </div>
 
-              <p className="text-sm text-muted-foreground mb-4">Showing {filteredDiseases.length} of {diseases.length} diseases</p>
+              <p className="text-sm text-muted-foreground mb-4">Showing {filteredDiseases.length} of {allDiseases.length} diseases</p>
 
               <StaggerContainer className="grid gap-4 sm:grid-cols-2" staggerDelay={0.05} delayStart={0.15}>
                 {filteredDiseases.map((disease) => (

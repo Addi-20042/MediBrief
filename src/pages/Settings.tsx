@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -14,32 +13,21 @@ import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerContainer";
 import SettingsSkeleton from "@/components/skeletons/SettingsSkeleton";
+import type { ProfileRow } from "@/lib/healthData";
 import {
-  Settings as SettingsIcon, User, Bell, Shield, Save, LogOut,
-  Trash2, Sun, Moon, Monitor, Palette, Loader2, Phone, BellRing,
+  Settings as SettingsIcon, User, Bell, Shield, LogOut,
+  Trash2, Sun, Moon, Monitor, Palette, BellRing,
 } from "lucide-react";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useTheme } from "next-themes";
-import { normalizePatientName, normalizePhoneNumber } from "@/lib/profileValidation";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-interface Profile {
-  id: string;
-  user_id: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  phone_number: string | null;
-}
-
 const Settings = () => {
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [fullName, setFullName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [emailNotifications, setEmailNotifications] = useState(true);
   const { user, signOut } = useAuth();
   const { supported: pushSupported, permission: pushPermission, requestPermission } = usePushNotifications();
@@ -47,52 +35,27 @@ const Settings = () => {
   const { toast } = useToast();
   const { theme, setTheme } = useTheme();
 
-  useEffect(() => {
-    if (!user) { navigate("/login"); return; }
-    fetchProfile();
-  }, [user, navigate]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
     try {
       const { data, error } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
       if (error) throw error;
-      if (data) { setProfile(data as Profile); setFullName(data.full_name || ""); setPhoneNumber((data as any).phone_number || ""); }
+      if (data) {
+        const profile = data as ProfileRow;
+        setFullName(profile.full_name || "");
+      }
     } catch (error) { console.error("Error fetching profile:", error); }
     finally { setLoading(false); }
-  };
+  }, [user]);
 
-  const handleSaveProfile = async () => {
-    if (!user) return;
-    setSaving(true);
-    try {
-      const trimmedName = fullName.trim();
-      const trimmedPhoneNumber = phoneNumber.trim();
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
 
-      if (trimmedName && /[0-9]/.test(trimmedName)) {
-        toast({
-          title: "Invalid patient name",
-          description: "Patient name can only contain letters.",
-          variant: "destructive",
-        });
-        setSaving(false);
-        return;
-      }
-
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: trimmedName ? normalizePatientName(trimmedName) : null,
-          phone_number: trimmedPhoneNumber ? normalizePhoneNumber(trimmedPhoneNumber) : null,
-        } as any)
-        .eq("user_id", user.id);
-      if (error) throw error;
-      toast({ title: "Settings saved", description: "Your profile has been updated successfully." });
-    } catch (error) {
-      console.error("Error saving profile:", error);
-      toast({ title: "Error", description: "Failed to save settings.", variant: "destructive" });
-    } finally { setSaving(false); }
-  };
+    void fetchProfile();
+  }, [fetchProfile, navigate, user]);
 
   const handleDeleteHistory = async () => {
     if (!user) return;
@@ -163,9 +126,9 @@ const Settings = () => {
                         </Label>
                         <p className="text-sm text-muted-foreground">
                           {pushPermission === "granted"
-                            ? "✅ Enabled — you'll get medication reminders"
+                            ? "Enabled - you'll get medication reminders"
                             : pushPermission === "denied"
-                            ? "Blocked — click the lock icon in your browser's address bar to allow notifications, then refresh"
+                            ? "Blocked - click the lock icon in your browser's address bar to allow notifications, then refresh"
                             : pushSupported
                             ? "Get browser notifications for medication reminders"
                             : "Not supported in this browser"}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,26 +15,13 @@ import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerContainer";
 import { normalizePatientName, normalizePhoneNumber } from "@/lib/profileValidation";
+import type { ProfileRow, ProfileUpdate } from "@/lib/healthData";
 import {
   User, Camera, Save, Loader2, Heart, Ruler, Droplets,
   Calendar, AlertTriangle, Activity, ArrowLeft,
 } from "lucide-react";
 
-interface ProfileData {
-  full_name: string | null;
-  avatar_url: string | null;
-  phone_number: string | null;
-  date_of_birth: string | null;
-  gender: string | null;
-  blood_type: string | null;
-  height_cm: number | null;
-  weight_kg: number | null;
-  allergies: string | null;
-  medical_conditions: string | null;
-}
-
 const Profile = () => {
-  const [profile, setProfile] = useState<ProfileData | null>(null);
   const [fullName, setFullName] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [dateOfBirth, setDateOfBirth] = useState("");
@@ -53,12 +40,7 @@ const Profile = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    if (!user) { navigate("/login"); return; }
-    fetchProfile();
-  }, [user, navigate]);
-
-  const fetchProfile = async () => {
+  const fetchProfile = useCallback(async () => {
     if (!user) return;
     try {
       const { data, error } = await supabase
@@ -68,25 +50,33 @@ const Profile = () => {
         .maybeSingle();
       if (error) throw error;
       if (data) {
-        const p = data as any;
-        setProfile(p);
-        setFullName(p.full_name || "");
-        setPhoneNumber(p.phone_number || "");
-        setDateOfBirth(p.date_of_birth || "");
-        setGender(p.gender || "");
-        setBloodType(p.blood_type || "");
-        setHeightCm(p.height_cm?.toString() || "");
-        setWeightKg(p.weight_kg?.toString() || "");
-        setAllergies(p.allergies || "");
-        setMedicalConditions(p.medical_conditions || "");
-        setAvatarUrl(p.avatar_url || null);
+        const profile = data as ProfileRow;
+        setFullName(profile.full_name || "");
+        setPhoneNumber(profile.phone_number || "");
+        setDateOfBirth(profile.date_of_birth || "");
+        setGender(profile.gender || "");
+        setBloodType(profile.blood_type || "");
+        setHeightCm(profile.height_cm?.toString() || "");
+        setWeightKg(profile.weight_kg?.toString() || "");
+        setAllergies(profile.allergies || "");
+        setMedicalConditions(profile.medical_conditions || "");
+        setAvatarUrl(profile.avatar_url || null);
       }
     } catch (error) {
       console.error("Error fetching profile:", error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+
+    void fetchProfile();
+  }, [fetchProfile, navigate, user]);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -116,7 +106,11 @@ const Profile = () => {
         .getPublicUrl(filePath);
 
       const url = `${publicUrl}?t=${Date.now()}`;
-      await supabase.from("profiles").update({ avatar_url: url } as any).eq("user_id", user.id);
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .upsert({ user_id: user.id, avatar_url: url }, { onConflict: "user_id" });
+      if (profileError) throw profileError;
+
       setAvatarUrl(url);
       toast({ title: "Avatar updated!", description: "Your profile picture has been changed." });
     } catch (error) {
@@ -140,11 +134,10 @@ const Profile = () => {
           description: "Patient name can only contain letters.",
           variant: "destructive",
         });
-        setSaving(false);
         return;
       }
 
-      const updates: any = {
+      const updates: ProfileUpdate = {
         full_name: trimmedName ? normalizePatientName(trimmedName) : null,
         phone_number: trimmedPhoneNumber ? normalizePhoneNumber(trimmedPhoneNumber) : null,
         date_of_birth: dateOfBirth || null,
@@ -156,7 +149,9 @@ const Profile = () => {
         medical_conditions: medicalConditions.trim() || null,
       };
 
-      const { error } = await supabase.from("profiles").update(updates).eq("user_id", user.id);
+      const { error } = await supabase
+        .from("profiles")
+        .upsert({ user_id: user.id, ...updates }, { onConflict: "user_id" });
       if (error) throw error;
       toast({ title: "Profile saved!", description: "Your profile has been updated successfully." });
     } catch (error) {

@@ -89,7 +89,7 @@ bun install
 
 1. Go to [Supabase Dashboard](https://app.supabase.com)
 2. Create a new project or use existing one
-3. Navigate to **Project Settings** → **API**
+3. Navigate to **Project Settings** -> **API**
 4. Copy the following values:
    - **Project URL** (VITE_SUPABASE_URL)
    - **Anon Public Key** (VITE_SUPABASE_PUBLISHABLE_KEY)
@@ -135,7 +135,7 @@ VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key-here
 **Where to find these values:**
 - Go to [Supabase Dashboard](https://app.supabase.com)
 - Select your project
-- Click **Settings** → **API**
+- Click **Settings** -> **API**
 - Copy the **Project URL** and **Anon Public Key**
 
 ### Step 4: Apply Database Migrations
@@ -172,7 +172,7 @@ supabase db reset
 
 Edge functions require API keys to work. Set these in Supabase Dashboard:
 
-1. Go to **Project Settings** → **Secrets**
+1. Go to **Project Settings** -> **Secrets**
 2. Add the following secrets:
 
 ```
@@ -185,7 +185,7 @@ SUPABASE_ANON_KEY = your-supabase-anon-key
 **Get API Keys:**
 - **Lovable API Key**: Contact Lovable team or check dashboard
 - **Resend API Key**: [Resend Dashboard](https://resend.com) (free tier available)
-- **Supabase credentials**: From Settings → API (same as Step 3)
+- **Supabase credentials**: From Settings -> API (same as Step 3)
 
 ### Step 6: Deploy Edge Functions
 
@@ -221,7 +221,7 @@ bun run dev
 
 The application will start at:
 - **URL**: `http://localhost:5173` (or shown in terminal)
-- **Frontend port**: 8080 (configured in vite.config.ts)
+- **Frontend port**: 5173 by default unless changed by Vite
 - **Hot reload**: Automatically enabled
 
 ### Step 8: Access the Application
@@ -240,7 +240,6 @@ Open your browser and navigate to `http://localhost:5173`
 ```bash
 # Development
 npm run dev              # Start dev server (localhost:5173)
-npm run dev:open        # Start dev server and open browser
 
 # Production
 npm run build            # Build for production
@@ -249,7 +248,6 @@ npm run preview          # Preview production build locally
 
 # Code Quality
 npm run lint             # Run ESLint checks
-npm run lint:fix         # Fix ESLint issues automatically
 
 # Testing
 npm run test             # Run tests once with Vitest
@@ -260,6 +258,56 @@ supabase db push         # Push migrations
 supabase db reset        # Reset database
 supabase functions deploy  # Deploy edge functions
 ```
+
+## Production Deployment
+
+For a low-cost public launch, use:
+
+- Vercel Hobby for the frontend
+- Supabase free tier or the lowest paid tier when needed
+- A single custom domain
+
+The detailed launch checklist lives in [DEPLOY_ON_BUDGET.md](./DEPLOY_ON_BUDGET.md).
+
+### Minimum Production Environment Variables
+
+Frontend:
+
+```env
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_PUBLISHABLE_KEY=your-anon-key
+VITE_SUPABASE_PROJECT_ID=your-project-id
+VITE_SITE_URL=https://your-domain.com
+VITE_SUPPORT_EMAIL=support@your-domain.com
+```
+
+Supabase secrets:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+GOOGLE_GEMINI_API_KEY=your-ai-key
+MEDICATION_REMINDER_CRON_SECRET=your-long-random-secret
+```
+
+Add email and SMS provider secrets only if you plan to use those features in production.
+
+### Production Checklist
+
+1. Apply database migrations with `supabase db push`
+2. Deploy edge functions with `supabase functions deploy`
+3. Set Vercel environment variables
+4. Set Supabase Auth Site URL and redirect URLs
+5. Verify login, signup, password reset, symptom analysis, report analysis, chatbot, admin, and reminder flows
+
+### Important Manual Steps Outside This Repo
+
+- create the Vercel project
+- attach your domain and DNS
+- add Supabase dashboard secrets
+- configure Google OAuth redirect URLs if you use Google login
+- configure the scheduled trigger for medication reminders
 
 ## Troubleshooting & Common Issues
 
@@ -324,7 +372,7 @@ supabase functions list --verbose
 supabase db reset
 
 # For remote: manually run migrations from Supabase dashboard
-# SQL Editor → Click migration file → Edit SQL → Run
+# SQL Editor -> Click migration file -> Edit SQL -> Run
 ```
 
 ### Issue: Port 5173 already in use
@@ -343,7 +391,7 @@ npm run dev -- --port 3000
 ### Issue: "Missing LOVABLE_API_KEY" in Edge Functions
 
 **Solution:**
-1. Go to Supabase Dashboard → Project Settings → Secrets
+1. Go to Supabase Dashboard -> Project Settings -> Secrets
 2. Add `LOVABLE_API_KEY` with your API key
 3. Redeploy functions:
    ```bash

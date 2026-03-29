@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import PageTransition from "@/components/animations/PageTransition";
@@ -140,21 +140,7 @@ const HealthTracking = () => {
     notes: "",
   });
 
-  useEffect(() => {
-    if (!user) {
-      navigate("/login");
-      return;
-    }
-    fetchData();
-  }, [user, navigate]);
-
-  useEffect(() => {
-    if (user) {
-      fetchMetricsForDate(selectedDate);
-    }
-  }, [selectedDate, user]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     
@@ -193,23 +179,6 @@ const HealthTracking = () => {
 
       if (logsError) throw logsError;
       setTodayLogs(logsData || []);
-
-      // Load today's metrics into form
-      const todayData = metricsData?.find(m => m.metric_date === today);
-      if (todayData) {
-        setTodayMetrics({
-          weight: todayData.weight?.toString() || "",
-          blood_pressure_systolic: todayData.blood_pressure_systolic?.toString() || "",
-          blood_pressure_diastolic: todayData.blood_pressure_diastolic?.toString() || "",
-          heart_rate: todayData.heart_rate?.toString() || "",
-          blood_sugar: todayData.blood_sugar?.toString() || "",
-          sleep_hours: todayData.sleep_hours?.toString() || "",
-          water_intake: todayData.water_intake?.toString() || "",
-          steps: todayData.steps?.toString() || "",
-          mood: todayData.mood || "",
-          notes: todayData.notes || "",
-        });
-      }
     } catch (error) {
       console.error("Error fetching data:", error);
       toast({
@@ -220,26 +189,37 @@ const HealthTracking = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast, user]);
 
-  const fetchMetricsForDate = async (date: string) => {
+  const fetchMetricsForDate = useCallback(async (date: string) => {
     if (!user) return;
-    
-    const existing = metrics.find(m => m.metric_date === date);
-    if (existing) {
-      setTodayMetrics({
-        weight: existing.weight?.toString() || "",
-        blood_pressure_systolic: existing.blood_pressure_systolic?.toString() || "",
-        blood_pressure_diastolic: existing.blood_pressure_diastolic?.toString() || "",
-        heart_rate: existing.heart_rate?.toString() || "",
-        blood_sugar: existing.blood_sugar?.toString() || "",
-        sleep_hours: existing.sleep_hours?.toString() || "",
-        water_intake: existing.water_intake?.toString() || "",
-        steps: existing.steps?.toString() || "",
-        mood: existing.mood || "",
-        notes: existing.notes || "",
-      });
-    } else {
+
+    try {
+      const { data, error } = await supabase
+        .from("health_metrics")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("metric_date", date)
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (data) {
+        setTodayMetrics({
+          weight: data.weight?.toString() || "",
+          blood_pressure_systolic: data.blood_pressure_systolic?.toString() || "",
+          blood_pressure_diastolic: data.blood_pressure_diastolic?.toString() || "",
+          heart_rate: data.heart_rate?.toString() || "",
+          blood_sugar: data.blood_sugar?.toString() || "",
+          sleep_hours: data.sleep_hours?.toString() || "",
+          water_intake: data.water_intake?.toString() || "",
+          steps: data.steps?.toString() || "",
+          mood: data.mood || "",
+          notes: data.notes || "",
+        });
+        return;
+      }
+
       setTodayMetrics({
         weight: "",
         blood_pressure_systolic: "",
@@ -252,8 +232,29 @@ const HealthTracking = () => {
         mood: "",
         notes: "",
       });
+    } catch (error) {
+      console.error("Error fetching metrics for date:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load metrics for the selected date",
+        variant: "destructive",
+      });
     }
-  };
+  }, [toast, user]);
+
+  useEffect(() => {
+    if (!user) {
+      navigate("/login");
+      return;
+    }
+    void fetchData();
+  }, [fetchData, navigate, user]);
+
+  useEffect(() => {
+    if (user) {
+      void fetchMetricsForDate(selectedDate);
+    }
+  }, [fetchMetricsForDate, selectedDate, user]);
 
   const handleSaveMetrics = async () => {
     if (!user) return;
@@ -286,7 +287,7 @@ const HealthTracking = () => {
         description: "Your health metrics have been recorded.",
       });
 
-      fetchData();
+      await Promise.all([fetchData(), fetchMetricsForDate(selectedDate)]);
     } catch (error) {
       console.error("Error saving metrics:", error);
       toast({

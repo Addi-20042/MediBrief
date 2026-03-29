@@ -40,6 +40,10 @@ const HealthTracking = lazy(() => import("./pages/HealthTracking"));
 const Emergency = lazy(() => import("./pages/Emergency"));
 const FirstAid = lazy(() => import("./pages/FirstAid"));
 const Profile = lazy(() => import("./pages/Profile"));
+const Privacy = lazy(() => import("./pages/Privacy"));
+const Terms = lazy(() => import("./pages/Terms"));
+const MedicalDisclaimer = lazy(() => import("./pages/MedicalDisclaimer"));
+const Contact = lazy(() => import("./pages/Contact"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 
 const queryClient = new QueryClient({
@@ -95,6 +99,10 @@ const AnimatedRoutes = () => {
         <Route path="/health-tracking" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><HealthTrackingSkeleton /></SkeletonPage>}><HealthTracking /></Suspense></RouteErrorBoundary>} />
         <Route path="/emergency" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><Emergency /></Suspense></RouteErrorBoundary>} />
         <Route path="/first-aid" element={<RouteErrorBoundary><Suspense fallback={<SkeletonPage><EmergencySkeleton /></SkeletonPage>}><FirstAid /></Suspense></RouteErrorBoundary>} />
+        <Route path="/privacy" element={<Suspense fallback={null}><Privacy /></Suspense>} />
+        <Route path="/terms" element={<Suspense fallback={null}><Terms /></Suspense>} />
+        <Route path="/medical-disclaimer" element={<Suspense fallback={null}><MedicalDisclaimer /></Suspense>} />
+        <Route path="/contact" element={<Suspense fallback={null}><Contact /></Suspense>} />
         <Route path="*" element={<Suspense fallback={null}><NotFound /></Suspense>} />
       </Routes>
     </AnimatePresence>

@@ -1,6 +1,7 @@
-import { useMemo } from "react";
+import { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import AppFeatureCard from "@/components/AppFeatureCard";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -28,15 +29,39 @@ import {
   UserCircle,
 } from "lucide-react";
 import { format, startOfMonth, endOfMonth } from "date-fns";
+import { listPublishedAppFeatureCards } from "@/lib/adminContent";
+
+interface PredictionDisease {
+  name?: string;
+  probability?: number;
+  likelihood?: number;
+  urgency?: string;
+}
 
 interface Prediction {
   id: string;
   prediction_type: string;
   input_data: string;
-  predicted_diseases: any;
+  predicted_diseases: Array<PredictionDisease | string> | null;
   summary: string | null;
   created_at: string;
 }
+
+interface DashboardProfile {
+  full_name: string | null;
+  blood_type: string | null;
+  allergies: string | null;
+  medical_conditions: string | null;
+}
+
+const getPredictionDiseaseName = (disease: PredictionDisease | string) =>
+  typeof disease === "string" ? disease : disease.name || "Unknown condition";
+
+const getPredictionDiseaseProbability = (disease: PredictionDisease | string) =>
+  typeof disease === "string" ? 0 : disease.probability || disease.likelihood || 0;
+
+const getPredictionDiseaseUrgency = (disease: PredictionDisease | string) =>
+  typeof disease === "string" ? "" : (disease.urgency || "").toLowerCase();
 
 // Fetch all dashboard data in a single parallel call
 const fetchDashboardData = async (userId: string) => {
@@ -47,6 +72,7 @@ const fetchDashboardData = async (userId: string) => {
       .from("predictions")
       .select("*")
       .eq("user_id", userId)
+      .eq("is_hidden", false)
       .order("created_at", { ascending: false })
       .limit(50),
     supabase
@@ -73,12 +99,19 @@ const fetchDashboardData = async (userId: string) => {
       .maybeSingle(),
   ]);
 
-  if (predictionsRes.error) throw predictionsRes.error;
+  const firstError =
+    predictionsRes.error ||
+    metricsRes.error ||
+    remindersRes.error ||
+    logsRes.error ||
+    profileRes.error;
+
+  if (firstError) throw firstError;
 
   const allPredictions: Prediction[] = predictionsRes.data || [];
 
   // Profile
-  const profile = profileRes.data as any;
+  const profile = profileRes.data as DashboardProfile | null;
   const profileName = profile?.full_name ?? null;
   const profileComplete = !!(profile?.blood_type || profile?.allergies || profile?.medical_conditions);
 
@@ -95,8 +128,8 @@ const fetchDashboardData = async (userId: string) => {
   const recentConditions: string[] = [];
   allPredictions.slice(0, 5).forEach((p) => {
     if (p.predicted_diseases && Array.isArray(p.predicted_diseases)) {
-      p.predicted_diseases.slice(0, 2).forEach((disease: any) => {
-        const name = disease.name || disease;
+      p.predicted_diseases.slice(0, 2).forEach((disease) => {
+        const name = getPredictionDiseaseName(disease);
         if (!recentConditions.includes(name)) recentConditions.push(name);
       });
     }
@@ -105,9 +138,9 @@ const fetchDashboardData = async (userId: string) => {
   let healthScore = 100;
   allPredictions.forEach((p) => {
     if (p.predicted_diseases && Array.isArray(p.predicted_diseases)) {
-      p.predicted_diseases.forEach((disease: any) => {
-        const probability = disease.probability || disease.likelihood || 0;
-        const urgency = (disease.urgency || "").toLowerCase();
+      p.predicted_diseases.forEach((disease) => {
+        const probability = getPredictionDiseaseProbability(disease);
+        const urgency = getPredictionDiseaseUrgency(disease);
         if (urgency === "high" || probability > 80) healthScore -= 5;
         else if (urgency === "medium" || probability > 50) healthScore -= 2;
         else healthScore -= 1;
@@ -146,10 +179,10 @@ const fetchDashboardData = async (userId: string) => {
 };
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["dashboard", user?.id],
     queryFn: () => fetchDashboardData(user!.id),
     enabled: !!user,
@@ -157,12 +190,24 @@ const Dashboard = () => {
     gcTime: 5 * 60 * 1000,
   });
 
-  // Redirect if not logged in
-  useMemo(() => {
-    if (!user) navigate("/login");
-  }, [user, navigate]);
+  const appFeatureCardsQuery = useQuery({
+    queryKey: ["published-app-feature-cards"],
+    queryFn: listPublishedAppFeatureCards,
+  });
 
-  if (isLoading || !data) return <DashboardSkeleton />;
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate("/login", { replace: true });
+    }
+  }, [authLoading, navigate, user]);
+
+  if (authLoading || isLoading) return <DashboardSkeleton />;
+
+  if (!user) return null;
+
+  if (error) throw error;
+
+  if (!data) return <DashboardSkeleton />;
 
   const { predictions, profileName, profileComplete, stats, todayMetrics } = data;
 
@@ -409,6 +454,27 @@ const Dashboard = () => {
                   </CardContent>
                 </Card>
               </StaggerItem>
+
+              {appFeatureCardsQuery.data && appFeatureCardsQuery.data.length > 0 && (
+                <StaggerItem className="lg:col-span-2">
+                  <Card className="border-border/50 hover:shadow-md transition-shadow duration-300">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2">
+                        <TrendingUp className="h-5 w-5 text-primary" />
+                        Admin Feature Cards
+                      </CardTitle>
+                      <CardDescription>New tools and resources published from the admin panel</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                        {appFeatureCardsQuery.data.map((feature) => (
+                          <AppFeatureCard key={feature.id} feature={feature} compact />
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </StaggerItem>
+              )}
 
               <StaggerItem className="lg:col-span-2">
                 <Card className="border-border/50 hover:shadow-md transition-shadow duration-300">

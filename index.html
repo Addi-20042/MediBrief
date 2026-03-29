@@ -3,29 +3,37 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>MediBrief — AI Health Assistant</title>
-    <meta name="description" content="MediBrief — AI-powered medical assistant for symptom analysis, report insights, and health tracking" />
+    <title>MediBrief | AI Health Assistant</title>
+    <meta
+      name="description"
+      content="MediBrief is an AI-powered health assistant for symptom analysis, report understanding, emergency guidance, and personal health tracking."
+    />
     <meta name="author" content="MediBrief" />
+    <meta name="theme-color" content="#0f766e" />
+    <meta name="robots" content="index, follow" />
 
-    <!-- Preconnect to critical origins -->
-    <link rel="preconnect" href="https://affqqjllibazvolkjlad.supabase.co" crossorigin />
-    <link rel="dns-prefetch" href="https://affqqjllibazvolkjlad.supabase.co" />
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="manifest" href="/site.webmanifest" />
 
-    <!-- Preload critical font -->
+    <meta property="og:title" content="MediBrief | AI Health Assistant" />
+    <meta
+      property="og:description"
+      content="Analyze symptoms, understand reports, access emergency guidance, and track your health in one place."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/og-preview.svg" />
+
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="MediBrief | AI Health Assistant" />
+    <meta
+      name="twitter:description"
+      content="Analyze symptoms, understand reports, access emergency guidance, and track your health in one place."
+    />
+    <meta name="twitter:image" content="/og-preview.svg" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 
-    <!-- Open Graph -->
-    <meta property="og:title" content="MediBrief — AI Health Assistant" />
-    <meta property="og:description" content="MediBrief — AI-powered medical assistant for symptom analysis, report insights, and health tracking" />
-    <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-
-    <!-- Instant loading indicator before React mounts -->
     <style>
       #root:empty {
         display: flex;
@@ -34,8 +42,9 @@
         min-height: 100vh;
         background: hsl(200 20% 98%);
       }
+
       #root:empty::after {
-        content: '';
+        content: "";
         width: 32px;
         height: 32px;
         border: 3px solid hsl(168 76% 36% / 0.2);
@@ -43,17 +52,22 @@
         border-radius: 50%;
         animation: root-spin 0.6s linear infinite;
       }
+
       @media (prefers-color-scheme: dark) {
         #root:empty {
           background: hsl(210 40% 8%);
         }
+
         #root:empty::after {
           border-color: hsl(168 76% 42% / 0.2);
           border-top-color: hsl(168 76% 42%);
         }
       }
+
       @keyframes root-spin {
-        to { transform: rotate(360deg); }
+        to {
+          transform: rotate(360deg);
+        }
       }
     </style>
   </head>

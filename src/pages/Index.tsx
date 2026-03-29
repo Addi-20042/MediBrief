@@ -1,7 +1,9 @@
 import { Link, Navigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import Layout from "@/components/layout/Layout";
+import AppFeatureCard from "@/components/AppFeatureCard";
 import { useAuth } from "@/contexts/AuthContext";
 import PageTransition from "@/components/animations/PageTransition";
 import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerContainer";
@@ -18,9 +20,21 @@ import {
   Siren,
   HeartPulse,
 } from "lucide-react";
+import { listPublishedAppFeatureCards } from "@/lib/adminContent";
+import { usePageMeta } from "@/hooks/usePageMeta";
 
 const Index = () => {
+  usePageMeta({
+    title: "MediBrief",
+    description: "MediBrief helps you analyze symptoms, understand reports, access emergency guidance, and track your health in one place.",
+    path: "/",
+  });
+
   const { user, loading } = useAuth();
+  const appFeatureCardsQuery = useQuery({
+    queryKey: ["published-app-feature-cards"],
+    queryFn: listPublishedAppFeatureCards,
+  });
 
   if (!loading && user) {
     return <Navigate to="/dashboard" replace />;
@@ -141,6 +155,26 @@ const Index = () => {
             </StaggerContainer>
           </div>
         </section>
+
+        {appFeatureCardsQuery.data && appFeatureCardsQuery.data.length > 0 && (
+          <section className="py-16">
+            <div className="container">
+              <div className="max-w-2xl mb-8">
+                <h2 className="text-2xl md:text-3xl font-bold mb-3">More Tools From Admin</h2>
+                <p className="text-muted-foreground">
+                  Admin-published feature cards can spotlight new tools, routes, and resources across the app.
+                </p>
+              </div>
+              <StaggerContainer className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" staggerDelay={0.08}>
+                {appFeatureCardsQuery.data.map((feature) => (
+                  <StaggerItem key={feature.id}>
+                    <AppFeatureCard feature={feature} />
+                  </StaggerItem>
+                ))}
+              </StaggerContainer>
+            </div>
+          </section>
+        )}
 
         {/* Benefits */}
         <section className="py-16">

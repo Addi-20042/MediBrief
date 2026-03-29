@@ -15,6 +15,7 @@ import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import AdminRoute from "@/components/admin/AdminRoute";
 import AdminModerationDialog from "@/components/admin/AdminModerationDialog";
+import AdminContentManager from "@/components/admin/AdminContentManager";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,10 +186,11 @@ const Admin = () => {
               </div>
 
               <Tabs defaultValue="overview" className="space-y-6">
-                <TabsList className="grid w-full max-w-xl grid-cols-3">
+                <TabsList className="grid w-full max-w-3xl grid-cols-4">
                   <TabsTrigger value="overview">Overview</TabsTrigger>
                   <TabsTrigger value="users">Users</TabsTrigger>
                   <TabsTrigger value="audit">Audit Log</TabsTrigger>
+                  <TabsTrigger value="content">Content</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="overview" className="space-y-6">
@@ -378,6 +380,10 @@ const Admin = () => {
                       )}
                     </CardContent>
                   </Card>
+                </TabsContent>
+
+                <TabsContent value="content" className="space-y-6">
+                  <AdminContentManager />
                 </TabsContent>
               </Tabs>
             </div>

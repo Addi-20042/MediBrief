@@ -10,6 +10,8 @@ import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import type { ProfileRow } from "@/lib/healthData";
+import { buildHealthProfilePrompt } from "@/lib/healthData";
 import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import StaggerContainer, { StaggerItem } from "@/components/animations/StaggerContainer";
@@ -63,32 +65,27 @@ const Symptoms = () => {
     try {
       // Fetch user health profile if logged in
       let healthContext = "";
+      const symptomText = symptoms.trim();
       if (user) {
         const { data: profile } = await supabase
           .from("profiles")
           .select("*")
           .eq("user_id", user.id)
           .maybeSingle();
-        if (profile) {
-          const p = profile as any;
-          const parts: string[] = [];
-          if (p.date_of_birth) {
-            const age = Math.floor((Date.now() - new Date(p.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-            parts.push(`Age: ${age}`);
-          }
-          if (p.gender) parts.push(`Gender: ${p.gender}`);
-          if (p.blood_type) parts.push(`Blood Type: ${p.blood_type}`);
-          if (p.height_cm) parts.push(`Height: ${p.height_cm}cm`);
-          if (p.weight_kg) parts.push(`Weight: ${p.weight_kg}kg`);
-          if (p.allergies) parts.push(`Known Allergies: ${p.allergies}`);
-          if (p.medical_conditions) parts.push(`Existing Conditions: ${p.medical_conditions}`);
-          if (parts.length > 0) healthContext = `\n\nPatient Profile:\n${parts.join("\n")}`;
+
+        const profilePrompt = buildHealthProfilePrompt(profile as ProfileRow | null, {
+          prefix: "Patient Profile:",
+          multiline: true,
+        });
+
+        if (profilePrompt) {
+          healthContext = `\n\n${profilePrompt}`;
         }
       }
 
       const response = await withRetry(
         () => withTimeout(
-          supabase.functions.invoke("analyze-symptoms", { body: { symptoms: symptoms.trim() + healthContext } }),
+          supabase.functions.invoke("analyze-symptoms", { body: { symptoms: symptomText + healthContext } }),
           45_000,
           "analyze-symptoms"
         ),
@@ -101,10 +98,14 @@ const Symptoms = () => {
       setResult(data);
       clearSymptomsDraft();
       if (user) {
-        await supabase.from("predictions").insert({
-          user_id: user.id, prediction_type: "symptom", input_data: symptoms,
+        const { error: savePredictionError } = await supabase.from("predictions").insert({
+          user_id: user.id, prediction_type: "symptom", input_data: symptomText,
           predicted_diseases: data.conditions, summary: data.generalAdvice,
         });
+
+        if (savePredictionError) {
+          console.error("Failed to save prediction history:", savePredictionError);
+        }
       }
     } catch (error) {
       console.error("Analysis error:", error);

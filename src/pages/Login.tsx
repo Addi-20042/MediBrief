@@ -15,6 +15,7 @@ import {
   optionalPhoneSchema,
   patientNameSchema,
 } from "@/lib/profileValidation";
+import type { ProfileUpdate } from "@/lib/healthData";
 
 const loginSchema = z.object({
   fullName: patientNameSchema.optional().or(z.literal("")),
@@ -94,7 +95,7 @@ const Login = () => {
           try {
             const { data: { user: signedInUser } } = await supabase.auth.getUser();
             if (signedInUser) {
-              const updates: Record<string, string> = {};
+              const updates: ProfileUpdate = {};
 
               if (normalizedFullName) {
                 updates.full_name = normalizedFullName;
@@ -105,7 +106,9 @@ const Login = () => {
               }
 
               if (Object.keys(updates).length > 0) {
-                await supabase.from("profiles").update(updates as any).eq("user_id", signedInUser.id);
+                await supabase
+                  .from("profiles")
+                  .upsert({ user_id: signedInUser.id, ...updates }, { onConflict: "user_id" });
               }
             }
           } catch (profileError) {

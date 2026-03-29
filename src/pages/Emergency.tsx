@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import {
   Search, Copy, Check, Siren, Hospital, Brain, Droplets, HeartPulse, ArrowRight,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { listPublishedCustomEmergencyContacts } from "@/lib/adminContent";
 
 interface EmergencyContact {
   id: string; name: string; number: string; description: string;
@@ -36,8 +38,34 @@ const Emergency = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedNumber, setCopiedNumber] = useState<string | null>(null);
   const { toast } = useToast();
+  const customContactsQuery = useQuery({
+    queryKey: ["published-custom-emergency"],
+    queryFn: listPublishedCustomEmergencyContacts,
+  });
 
-  const filteredContacts = emergencyContacts.filter((c) =>
+  const customContacts = useMemo(
+    () =>
+      (customContactsQuery.data || []).map((contact) => ({
+        id: `custom-emergency-${contact.id}`,
+        name: contact.name,
+        number: contact.number,
+        description: contact.country ? `${contact.description} • ${contact.country}` : contact.description,
+        priority: contact.priority,
+        icon:
+          contact.priority === "critical" ? (
+            <Siren className="h-5 w-5" />
+          ) : contact.priority === "high" ? (
+            <Hospital className="h-5 w-5" />
+          ) : (
+            <Phone className="h-5 w-5" />
+          ),
+      })),
+    [customContactsQuery.data],
+  );
+
+  const allContacts = useMemo(() => [...emergencyContacts, ...customContacts], [customContacts]);
+
+  const filteredContacts = allContacts.filter((c) =>
     c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
     c.number.includes(searchQuery)

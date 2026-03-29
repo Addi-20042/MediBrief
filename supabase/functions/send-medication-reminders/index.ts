@@ -149,6 +149,59 @@ const releaseDelivery = async (
   await supabase.from("medication_sms_logs").delete().eq("delivery_key", deliveryKey);
 };
 
+const getAuthenticatedUserId = async (
+  req: Request,
+  supabaseUrl: string,
+  supabaseAnonKey: string,
+) => {
+  const authHeader = req.headers.get("Authorization");
+  if (!authHeader?.startsWith("Bearer ")) {
+    return null;
+  }
+
+  const token = authHeader.replace("Bearer ", "").trim();
+  if (!token) {
+    return null;
+  }
+
+  const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+    global: {
+      headers: {
+        Authorization: authHeader,
+      },
+    },
+  });
+
+  const { data, error } = await authClient.auth.getUser(token);
+  if (error || !data.user) {
+    return null;
+  }
+
+  return data.user.id;
+};
+
+const requireMatchingUser = (
+  authenticatedUserId: string | null,
+  requestedUserId: string,
+) => {
+  if (!authenticatedUserId || authenticatedUserId !== requestedUserId) {
+    throw new Error("Forbidden");
+  }
+};
+
+const requireCronSecret = (req: Request) => {
+  const configuredSecret = Deno.env.get("MEDICATION_REMINDER_CRON_SECRET");
+  const requestSecret = req.headers.get("x-reminder-cron-secret");
+
+  if (!configuredSecret) {
+    throw new Error("MEDICATION_REMINDER_CRON_SECRET is not configured");
+  }
+
+  if (requestSecret !== configuredSecret) {
+    throw new Error("Forbidden");
+  }
+};
+
 const maybeSingleReminder = async (
   supabase: ReturnType<typeof createClient>,
   reminderId: string,
@@ -226,6 +279,10 @@ const sendScheduleCreatedSms = async (
   const reminder = await maybeSingleReminder(supabase, reminderId);
   if (!reminder) {
     return { sent: 0, skipped: "Reminder not found" };
+  }
+
+  if (reminder.user_id !== userId) {
+    throw new Error("Forbidden");
   }
 
   const profile = await getUserProfile(supabase, userId);
@@ -397,7 +454,9 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const authenticatedUserId = await getAuthenticatedUserId(req, SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let body: Record<string, string> = {};
 
@@ -417,6 +476,7 @@ Deno.serve(async (req) => {
         );
       }
 
+      requireMatchingUser(authenticatedUserId, body.user_id);
       const result = await sendScheduleCreatedSms(supabase, body.user_id, body.reminder_id);
       return new Response(
         JSON.stringify(result),
@@ -432,6 +492,7 @@ Deno.serve(async (req) => {
         );
       }
 
+      requireMatchingUser(authenticatedUserId, body.user_id);
       const result = await sendLoginDigestSms(supabase, body.user_id);
       return new Response(
         JSON.stringify(result),
@@ -439,6 +500,7 @@ Deno.serve(async (req) => {
       );
     }
 
+    requireCronSecret(req);
     const result = await sendScheduledDueSms(supabase);
     return new Response(
       JSON.stringify(result),
@@ -446,9 +508,11 @@ Deno.serve(async (req) => {
     );
   } catch (error) {
     console.error("Reminder Error:", error);
+    const message = (error as Error).message || "Internal server error";
+    const status = message === "Forbidden" ? 403 : 500;
     return new Response(
-      JSON.stringify({ error: (error as Error).message || "Internal server error" }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ error: message }),
+      { status, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

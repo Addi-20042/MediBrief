@@ -15,6 +15,7 @@ import {
   optionalPhoneSchema,
   patientNameSchema,
 } from "@/lib/profileValidation";
+import type { ProfileUpdate } from "@/lib/healthData";
 
 const signupSchema = z.object({
   fullName: patientNameSchema,
@@ -80,25 +81,33 @@ const Signup = () => {
           try {
             const { data: { user: newUser } } = await supabase.auth.getUser();
             if (newUser) {
+              const updates: ProfileUpdate = {
+                full_name: normalizedFullName,
+                phone_number: normalizedPhoneNumber,
+              };
+
               await supabase
                 .from("profiles")
-                .update({
-                  full_name: normalizedFullName,
-                  phone_number: normalizedPhoneNumber,
-                } as any)
-                .eq("user_id", newUser.id);
+                .upsert({ user_id: newUser.id, ...updates }, { onConflict: "user_id" });
             }
-          } catch (_) {}
+          } catch (profileError) {
+            console.error("Profile sync after signup failed:", profileError);
+          }
         } else {
           try {
             const { data: { user: newUser } } = await supabase.auth.getUser();
             if (newUser) {
+              const updates: ProfileUpdate = {
+                full_name: normalizedFullName,
+              };
+
               await supabase
                 .from("profiles")
-                .update({ full_name: normalizedFullName } as any)
-                .eq("user_id", newUser.id);
+                .upsert({ user_id: newUser.id, ...updates }, { onConflict: "user_id" });
             }
-          } catch (_) {}
+          } catch (profileError) {
+            console.error("Profile sync after signup failed:", profileError);
+          }
         }
         toast({ title: "Account Created!", description: "Welcome to MediBrief. You're now signed in." });
         navigate("/dashboard");

@@ -8,6 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/integrations/supabase/client";
+import type { ProfileRow } from "@/lib/healthData";
+import { buildHealthProfilePrompt } from "@/lib/healthData";
 import Layout from "@/components/layout/Layout";
 import PageTransition from "@/components/animations/PageTransition";
 import { motion, AnimatePresence } from "framer-motion";
@@ -18,6 +20,14 @@ import {
 interface Message {
   role: "user" | "assistant";
   content: string;
+}
+
+interface ChatStreamChunk {
+  choices?: Array<{
+    delta?: {
+      content?: string;
+    };
+  }>;
 }
 
 const FREE_MESSAGE_LIMIT = 3;
@@ -105,25 +115,22 @@ const Chatbot = () => {
       // Enrich first message with health profile context
       let enrichedMessages = [...messages, userMessage];
       if (user && messages.length <= 1) {
-        const { data: profile } = await supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle();
-        if (profile) {
-          const p = profile as any;
-          const parts: string[] = [];
-          if (p.date_of_birth) {
-            const age = Math.floor((Date.now() - new Date(p.date_of_birth).getTime()) / (365.25 * 24 * 60 * 60 * 1000));
-            parts.push(`Age: ${age}`);
-          }
-          if (p.gender) parts.push(`Gender: ${p.gender}`);
-          if (p.blood_type) parts.push(`Blood Type: ${p.blood_type}`);
-          if (p.allergies) parts.push(`Known Allergies: ${p.allergies}`);
-          if (p.medical_conditions) parts.push(`Existing Conditions: ${p.medical_conditions}`);
-          if (parts.length > 0) {
-            enrichedMessages = [
-              { role: "user" as const, content: `[Patient Context - do not repeat this back, just use it to personalize advice]\n${parts.join(", ")}` },
-              { role: "assistant" as const, content: "Understood, I'll keep your health profile in mind." },
-              ...enrichedMessages.slice(1),
-            ];
-          }
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        const profileContext = buildHealthProfilePrompt(profile as ProfileRow | null, {
+          prefix: "[Patient Context - do not repeat this back, just use it to personalize advice]",
+        });
+
+        if (profileContext) {
+          enrichedMessages = [
+            { role: "user" as const, content: profileContext },
+            { role: "assistant" as const, content: "Understood, I'll keep your health profile in mind." },
+            ...enrichedMessages.slice(1),
+          ];
         }
       }
       const response = await streamChat(enrichedMessages);
@@ -145,8 +152,8 @@ const Chatbot = () => {
           const jsonStr = line.slice(6).trim();
           if (jsonStr === "[DONE]") break;
           try {
-            const parsed = JSON.parse(jsonStr);
-            const content = parsed.choices?.[0]?.delta?.content as string | undefined;
+            const parsed = JSON.parse(jsonStr) as ChatStreamChunk;
+            const content = parsed.choices?.[0]?.delta?.content;
             if (content) {
               assistantContent += content;
               setMessages((prev) => {
