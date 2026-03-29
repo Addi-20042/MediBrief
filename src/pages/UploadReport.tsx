@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { withTimeout, withRetry } from "@/lib/fetchWithTimeout";
+import { getFunctionErrorMessage, withTimeout, withRetry } from "@/lib/fetchWithTimeout";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -159,13 +159,13 @@ const UploadReport = () => {
       );
 
       if (response.error) {
-        throw new Error(response.error.message || "Failed to analyze report");
+        throw new Error(await getFunctionErrorMessage(response.error, "Failed to analyze report"));
       }
 
       const data = response.data;
       
       if (data.error) {
-        throw new Error(data.error);
+        throw new Error(await getFunctionErrorMessage(new Error(data.error), "Failed to analyze report"));
       }
 
       setResult(data);
@@ -185,7 +185,7 @@ const UploadReport = () => {
       console.error("Analysis error:", error);
       toast({
         title: "Analysis Failed",
-        description: error instanceof Error ? error.message : "Failed to analyze report",
+        description: await getFunctionErrorMessage(error, "Failed to analyze report"),
         variant: "destructive",
       });
     } finally {

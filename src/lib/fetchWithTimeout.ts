@@ -12,6 +12,62 @@ export class RequestTimeoutError extends Error {
   }
 }
 
+function normalizeFunctionErrorMessage(message: string, fallback: string): string {
+  const cleaned = message.trim();
+  const lower = cleaned.toLowerCase();
+
+  if (!cleaned) return fallback;
+
+  if (lower.includes("quota exceeded") || lower.includes("rate limited")) {
+    return "AI analysis is temporarily unavailable because the Gemini API key has no available quota. Add billing or use a different Gemini key, then try again.";
+  }
+
+  if (lower.includes("not configured") || lower.includes("google_gemini_api_key")) {
+    return "AI analysis is not configured yet. Add a working GOOGLE_GEMINI_API_KEY in Supabase project secrets.";
+  }
+
+  return cleaned;
+}
+
+async function readResponseErrorMessage(response: Response): Promise<string | null> {
+  const clone = response.clone();
+
+  try {
+    const data = await clone.json();
+    if (typeof data?.error === "string") return data.error;
+    if (typeof data?.message === "string") return data.message;
+  } catch {
+    // Fall back to plain text below.
+  }
+
+  try {
+    const text = await response.clone().text();
+    return text.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+export async function getFunctionErrorMessage(error: unknown, fallback: string): Promise<string> {
+  if (error instanceof RequestTimeoutError) {
+    return error.message;
+  }
+
+  if (error && typeof error === "object") {
+    const maybeContext = "context" in error ? (error as { context?: unknown }).context : undefined;
+    if (typeof Response !== "undefined" && maybeContext instanceof Response) {
+      const contextMessage = await readResponseErrorMessage(maybeContext);
+      return normalizeFunctionErrorMessage(contextMessage ?? fallback, fallback);
+    }
+  }
+
+  if (error instanceof Error) {
+    return normalizeFunctionErrorMessage(error.message, fallback);
+  }
+
+  return fallback;
+}
+
 /**
  * Race a promise against a timeout. Works with any async call (fetch, supabase, etc.)
  */

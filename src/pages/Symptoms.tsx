@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { withTimeout, withRetry } from "@/lib/fetchWithTimeout";
+import { getFunctionErrorMessage, withTimeout, withRetry } from "@/lib/fetchWithTimeout";
 import { useFormDraft } from "@/hooks/useFormDraft";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -92,9 +92,13 @@ const Symptoms = () => {
         1,
         "analyze-symptoms"
       );
-      if (response.error) throw new Error(response.error.message || "Failed to analyze symptoms");
+      if (response.error) {
+        throw new Error(await getFunctionErrorMessage(response.error, "Failed to analyze symptoms"));
+      }
       const data = response.data;
-      if (data.error) throw new Error(data.error);
+      if (data.error) {
+        throw new Error(await getFunctionErrorMessage(new Error(data.error), "Failed to analyze symptoms"));
+      }
       setResult(data);
       clearSymptomsDraft();
       if (user) {
@@ -109,7 +113,11 @@ const Symptoms = () => {
       }
     } catch (error) {
       console.error("Analysis error:", error);
-      toast({ title: "Analysis Failed", description: error instanceof Error ? error.message : "Failed to analyze symptoms", variant: "destructive" });
+      toast({
+        title: "Analysis Failed",
+        description: await getFunctionErrorMessage(error, "Failed to analyze symptoms"),
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
