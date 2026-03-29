@@ -67,7 +67,7 @@ const Chatbot = () => {
       throw new Error("Supabase environment variables are missing. Check your project configuration.");
     }
 
-    const CHAT_URL = `${supabaseUrl}/functions/v1/chat`;
+    const CHAT_URL = `${supabaseUrl}/functions/v1/medical-chat`;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       apikey: publishableKey,

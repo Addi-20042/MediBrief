@@ -3,6 +3,9 @@ project_id = "pxrqkkejnmbartvpuwlx"
 [functions.chat]
 verify_jwt = false
 
+[functions.medical-chat]
+verify_jwt = false
+
 [functions.analyze-symptoms]
 verify_jwt = false
 
