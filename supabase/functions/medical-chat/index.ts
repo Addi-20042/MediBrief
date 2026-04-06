@@ -84,7 +84,7 @@ async function getStreamingResponse(messages: Array<{ role: string; content: str
       name: "Google Gemini",
       url: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
       key: apiKey,
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
     },
   ];
   let lastErrorMessage = "";

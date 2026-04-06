@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
 import {
-  Activity,
   Eye,
   EyeOff,
   Loader2,
@@ -274,6 +273,15 @@ const Admin = () => {
                           <Loader2 className="h-4 w-4 animate-spin" />
                           Loading users...
                         </div>
+                      ) : usersQuery.isError ? (
+                        <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+                          <p className="font-medium">Could not load users.</p>
+                          <p className="mt-1">
+                            {usersQuery.error instanceof Error
+                              ? usersQuery.error.message
+                              : "The admin user list request failed."}
+                          </p>
+                        </div>
                       ) : (
                         <Table>
                           <TableHeader>
@@ -400,10 +408,23 @@ const Admin = () => {
             </DialogDescription>
           </DialogHeader>
 
-          {selectedUserQuery.isLoading || !detail ? (
+          {selectedUserQuery.isLoading ? (
             <div className="flex items-center gap-2 text-muted-foreground py-8">
               <Loader2 className="h-4 w-4 animate-spin" />
               Loading user detail...
+            </div>
+          ) : selectedUserQuery.isError ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-4 text-sm text-destructive">
+              <p className="font-medium">Could not load user detail.</p>
+              <p className="mt-1">
+                {selectedUserQuery.error instanceof Error
+                  ? selectedUserQuery.error.message
+                  : "The selected user detail request failed."}
+              </p>
+            </div>
+          ) : !detail ? (
+            <div className="rounded-xl border border-border p-4 text-sm text-muted-foreground">
+              User details are unavailable for this account.
             </div>
           ) : (
             <div className="space-y-6">

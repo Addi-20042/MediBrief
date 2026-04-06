@@ -19,6 +19,10 @@ function normalizeFunctionErrorMessage(message: string, fallback: string): strin
   if (!cleaned) return fallback;
 
   if (lower.includes("quota exceeded") || lower.includes("rate limited")) {
+    if (lower.includes("limit: 0")) {
+      return "AI analysis is temporarily unavailable because this Gemini project has zero generation quota available. Enable billing for the Google project behind this key or use a different Gemini key from a project with active quota.";
+    }
+
     return "AI analysis is temporarily unavailable because the Gemini API key has no available quota. Add billing or use a different Gemini key, then try again.";
   }
 

@@ -4,6 +4,8 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
+const DEFAULT_SENDER_NAME = Deno.env.get("BREVO_SENDER_NAME") ?? "MediBrief";
+const DEFAULT_SENDER_EMAIL = Deno.env.get("BREVO_SENDER_EMAIL") ?? "raiarchana258@gmail.com";
 
 function escapeHtml(text: string): string {
   const htmlEscapes: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" };
@@ -82,7 +84,7 @@ const handler = async (req: Request): Promise<Response> => {
       method: "POST",
       headers: { "api-key": apiKey, "Content-Type": "application/json", "Accept": "application/json" },
       body: JSON.stringify({
-        sender: { name: "MediBrief", email: "raiarchana2580@gmail.com" },
+        sender: { name: DEFAULT_SENDER_NAME, email: DEFAULT_SENDER_EMAIL },
         to: [{ email: email.trim().toLowerCase() }],
         subject: "Welcome to MediBrief",
         htmlContent: html,
@@ -92,7 +94,7 @@ const handler = async (req: Request): Promise<Response> => {
     if (!response.ok) {
       const errorText = await response.text();
       console.error("Brevo error:", errorText);
-      return new Response(JSON.stringify({ error: "Failed to send welcome email" }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
+      return new Response(JSON.stringify({ error: `Brevo error ${response.status}. ${errorText || "Failed to send welcome email"}` }), { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } });
     }
 
     const data = await response.json();

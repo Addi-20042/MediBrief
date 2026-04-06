@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MediBrief Report Format Preview</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Arial, sans-serif;
+      background: #eef4f8;
+      color: #0f172a;
+    }
+
+    .shell {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 20px 56px;
+    }
+
+    .page-title {
+      margin: 0 0 8px;
+      font-size: 32px;
+    }
+
+    .page-subtitle {
+      margin: 0 0 24px;
+      color: #475569;
+      max-width: 760px;
+      line-height: 1.6;
+    }
+
+    .notice {
+      margin-bottom: 24px;
+      padding: 14px 16px;
+      border-radius: 14px;
+      background: #ecfeff;
+      border: 1px solid #a5f3fc;
+      color: #155e75;
+    }
+
+    .layout {
+      display: grid;
+      gap: 24px;
+    }
+
+    .panel {
+      background: rgba(255, 255, 255, 0.55);
+      border: 1px solid #d7e2ea;
+      border-radius: 18px;
+      padding: 18px;
+      backdrop-filter: blur(8px);
+    }
+
+    .panel h2 {
+      margin: 0 0 6px;
+      font-size: 22px;
+    }
+
+    .panel p {
+      margin: 0 0 16px;
+      color: #475569;
+      line-height: 1.6;
+    }
+
+    .email-wrapper {
+      max-width: 680px;
+      margin: 0 auto;
+      padding: 24px;
+      background-color: #f4f7fb;
+      border-radius: 18px;
+    }
+
+    .email-card {
+      background: white;
+      border-radius: 18px;
+      overflow: hidden;
+      box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+    }
+
+    .email-header {
+      padding: 28px 30px 20px;
+      border-bottom: 3px solid #0f766e;
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: #0f766e;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .email-header h3,
+    .report-header h3 {
+      margin: 0;
+      font-size: 28px;
+      color: #0f172a;
+    }
+
+    .email-header p,
+    .report-header p {
+      margin: 8px 0 0;
+      color: #475569;
+      font-size: 15px;
+    }
+
+    .email-body {
+      padding: 28px 30px 30px;
+    }
+
+    .box {
+      background: #f8fbff;
+      border: 1px solid #dbe4ee;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 18px;
+    }
+
+    .box h4 {
+      margin: 0 0 10px;
+      font-size: 18px;
+    }
+
+    .box p {
+      margin: 4px 0;
+      color: #334155;
+    }
+
+    .topic-card {
+      border: 1px solid #dbe4ee;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-bottom: 12px;
+      background: #ffffff;
+    }
+
+    .topic-label {
+      margin: 0 0 8px;
+      font-size: 12px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: 700;
+    }
+
+    .topic-card h5 {
+      margin: 0 0 8px;
+      font-size: 18px;
+      color: #0f172a;
+    }
+
+    .topic-card p {
+      margin: 0;
+      color: #334155;
+    }
+
+    .warning {
+      background: #fff7ed;
+      border: 1px solid #fdba74;
+      border-radius: 12px;
+      padding: 16px 18px;
+      margin-top: 24px;
+      color: #9a3412;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .email-footer {
+      margin-top: 24px;
+      padding-top: 18px;
+      border-top: 1px solid #dbe4ee;
+      color: #64748b;
+      font-size: 12px;
+    }
+
+    .print-page {
+      max-width: 880px;
+      margin: 0 auto;
+      background: #ffffff;
+      padding: 36px 40px 40px;
+      border-radius: 18px;
+      box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+    }
+
+    .report-header {
+      border-bottom: 3px solid #0f766e;
+      padding-bottom: 18px;
+      margin-bottom: 28px;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-bottom: 26px;
+    }
+
+    .meta-card {
+      border: 1px solid #dbe4ee;
+      border-radius: 12px;
+      padding: 14px 16px;
+      background: #f8fbff;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 6px;
+    }
+
+    .meta-value {
+      font-size: 15px;
+      font-weight: 600;
+      color: #0f172a;
+    }
+
+    .section {
+      margin-bottom: 22px;
+    }
+
+    .section-card {
+      border: 1px solid #dbe4ee;
+      border-radius: 14px;
+      padding: 18px 20px;
+      background: #ffffff;
+    }
+
+    .muted {
+      background: #f8fbff;
+    }
+
+    .alert {
+      background: #fff7ed;
+      border-color: #fdba74;
+    }
+
+    .section-title {
+      margin: 0 0 12px;
+      font-size: 17px;
+      color: #0f172a;
+    }
+
+    .section-text {
+      margin: 0;
+      color: #334155;
+      line-height: 1.6;
+    }
+
+    .print-topic-card {
+      border: 1px solid #dbe4ee;
+      border-radius: 14px;
+      padding: 18px 20px;
+      margin-bottom: 14px;
+      background: #ffffff;
+    }
+
+    .topic-header {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+
+    .topic-number {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      background: #0f766e;
+      color: #ffffff;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .topic-name {
+      margin: 2px 0 0;
+      font-size: 18px;
+      color: #0f172a;
+    }
+
+    .supporting-block {
+      margin-top: 14px;
+    }
+
+    .supporting-label {
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: #eff6ff;
+      color: #1d4ed8;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .list {
+      margin: 0;
+      padding-left: 18px;
+      color: #334155;
+    }
+
+    .list li + li {
+      margin-top: 8px;
+    }
+
+    .report-footer {
+      margin-top: 28px;
+      padding-top: 18px;
+      border-top: 1px solid #dbe4ee;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    code {
+      display: block;
+      white-space: pre-wrap;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 16px;
+      border-radius: 14px;
+      overflow-x: auto;
+      font-family: Consolas, Monaco, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 900px) {
+      .meta-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .print-page {
+        padding: 24px 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <h1 class="page-title">MediBrief Report Format Preview</h1>
+    <p class="page-subtitle">
+      This is a mock preview of the current email and print/PDF formats from your app. It uses sample data, so you can review the design and structure without a working AI API key.
+    </p>
+    <div class="notice">
+      Open this file in the running app at <strong>/report-format-preview.html</strong>.
+      The real print and PDF download use the same report layout shown below.
+    </div>
+
+    <div class="layout">
+      <section class="panel">
+        <h2>Email Preview</h2>
+        <p>This is the style your doctor or recipient would see when you click <strong>Email Report</strong>.</p>
+        <div class="email-wrapper">
+          <div class="email-card">
+            <div class="email-header">
+              <p class="eyebrow">MediBrief</p>
+              <h3>Shared Health Report</h3>
+              <p>Prepared to support review with a licensed healthcare professional.</p>
+            </div>
+            <div class="email-body">
+              <p style="margin: 0 0 18px 0;">Dear <strong>Dr. Priya Shah</strong>,</p>
+              <p style="margin: 0 0 18px 0; color: #334155;">A patient has shared their MediBrief health report with you.</p>
+
+              <div class="box">
+                <p class="eyebrow" style="margin-bottom: 8px; letter-spacing: 0.08em;">Patient Note</p>
+                <p>I have been feeling tired for a week and wanted your opinion on these findings before my appointment.</p>
+              </div>
+
+              <div class="box">
+                <h4>Report Details</h4>
+                <p><strong>Analysis Type:</strong> Medical report review</p>
+                <p><strong>Date:</strong> March 29, 2026</p>
+                <p><strong>Submitted Report Excerpt:</strong> Complete blood count shows mild anemia with hemoglobin at 10.8 g/dL and low ferritin.</p>
+              </div>
+
+              <div class="box">
+                <h4>Health Overview</h4>
+                <p>The uploaded report suggests iron deficiency anemia as the most likely explanation for the low hemoglobin and ferritin values. Follow-up should focus on confirming the cause and discussing a treatment plan.</p>
+              </div>
+
+              <div style="margin-bottom: 18px;">
+                <h4 style="margin: 0 0 12px 0;">Topics for Follow-Up</h4>
+                <p style="margin: 0 0 14px 0; color: #475569; font-size: 14px;">These items are presented as discussion points for clinical review.</p>
+
+                <div class="topic-card">
+                  <p class="topic-label">Follow-up Topic 1</p>
+                  <h5>Iron Deficiency Anemia</h5>
+                  <p>The low hemoglobin together with low ferritin makes iron deficiency an important follow-up topic.</p>
+                </div>
+
+                <div class="topic-card">
+                  <p class="topic-label">Follow-up Topic 2</p>
+                  <h5>Dietary Iron Intake</h5>
+                  <p>Reviewing nutrition, bleeding history, and absorption issues may help explain the deficiency.</p>
+                </div>
+              </div>
+
+              <div class="warning">
+                <strong>Important Note:</strong> This report is intended for informational support only and should not replace professional medical evaluation, diagnosis, or treatment.
+              </div>
+
+              <div class="email-footer">Generated by MediBrief</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Print / PDF Preview</h2>
+        <p>This is the format used by both the <strong>Print</strong> button and the <strong>Download</strong> PDF export.</p>
+        <div class="print-page">
+          <div class="report-header">
+            <div class="eyebrow">MediBrief</div>
+            <h3>Medical Report Analysis</h3>
+            <p>Prepared as a patient-friendly reference to support discussion with a clinician.</p>
+          </div>
+
+          <div class="meta-grid">
+            <div class="meta-card">
+              <div class="meta-label">Prepared On</div>
+              <div class="meta-value">March 29, 2026 at 6:30 PM</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Report Type</div>
+              <div class="meta-value">Medical report review</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Items Included</div>
+              <div class="meta-value">2</div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-card">
+              <h4 class="section-title">Submitted Information</h4>
+              <p class="section-text">Complete blood count shows hemoglobin 10.8 g/dL, ferritin 9 ng/mL, MCV 74 fL, and mild fatigue over the past two weeks.</p>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-card muted">
+              <h4 class="section-title">Health Overview</h4>
+              <p class="section-text">This report points most strongly toward iron deficiency anemia. The combination of microcytosis and low ferritin supports that interpretation, and follow-up should focus on identifying the source and deciding whether supplementation is needed.</p>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-card muted" style="margin-bottom: 14px;">
+              <h4 class="section-title">Topics for Follow-Up</h4>
+              <p class="section-text">Use these notes to guide a calm, informed discussion with a licensed healthcare professional.</p>
+            </div>
+
+            <div class="print-topic-card">
+              <div class="topic-header">
+                <div class="topic-number">1</div>
+                <div>
+                  <h5 class="topic-name">Iron Deficiency Anemia</h5>
+                </div>
+              </div>
+              <p class="section-text">Low ferritin and low mean corpuscular volume are consistent with depleted iron stores.</p>
+              <div class="supporting-block">
+                <div class="supporting-label">Relevant Findings</div>
+                <div class="tag-row">
+                  <span class="tag">Hemoglobin 10.8 g/dL</span>
+                  <span class="tag">Ferritin 9 ng/mL</span>
+                  <span class="tag">MCV 74 fL</span>
+                </div>
+              </div>
+              <div class="supporting-block">
+                <div class="supporting-label">Suggested Next Steps</div>
+                <ul class="list">
+                  <li>Discuss iron studies and possible causes with your clinician.</li>
+                  <li>Ask whether iron supplementation or repeat labs are appropriate.</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="print-topic-card">
+              <div class="topic-header">
+                <div class="topic-number">2</div>
+                <div>
+                  <h5 class="topic-name">Source of Blood Loss or Poor Absorption</h5>
+                </div>
+              </div>
+              <p class="section-text">If iron deficiency is confirmed, the next step is understanding why it developed.</p>
+              <div class="supporting-block">
+                <div class="supporting-label">Suggested Next Steps</div>
+                <ul class="list">
+                  <li>Review diet, menstrual history, GI symptoms, and medication use.</li>
+                  <li>Seek prompt follow-up if fatigue worsens or dizziness develops.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-card">
+              <h4 class="section-title">Suggested Next Steps</h4>
+              <ul class="list">
+                <li>Book a clinician follow-up within the next few days.</li>
+                <li>Carry the PDF or printed copy to your appointment.</li>
+                <li>Do not start medication without medical advice.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-card alert">
+              <h4 class="section-title">Important Note</h4>
+              <p class="section-text">This report is intended for educational support only and should not replace evaluation, diagnosis, or treatment from a licensed healthcare professional.</p>
+            </div>
+          </div>
+
+          <div class="report-footer">
+            <div>Generated by MediBrief on March 29, 2026 at 6:30 PM</div>
+            <div>Keep this report with your records and share it with a licensed clinician if you need follow-up care.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Text Structure</h2>
+        <p>This is the simplified content flow behind the exported report.</p>
+        <code>MEDIBRIEF - MEDICAL REPORT ANALYSIS
+========================================================================
+Prepared On: March 29, 2026 at 6:30 PM
+Report Type: Medical report review
+Items Included: 2
+
+SUBMITTED INFORMATION
+--------------------------------
+Complete blood count shows hemoglobin 10.8 g/dL, ferritin 9 ng/mL, MCV 74 fL, and mild fatigue over the past two weeks.
+
+HEALTH OVERVIEW
+--------------------------------
+This report points most strongly toward iron deficiency anemia...
+
+TOPICS FOR FOLLOW-UP
+--------------------------------
+1. Iron Deficiency Anemia
+   Low ferritin and low MCV are consistent with depleted iron stores.
+
+2. Source of Blood Loss or Poor Absorption
+   Follow-up should focus on why the deficiency developed.
+
+IMPORTANT NOTE
+--------------------------------
+This report is intended for educational support only and should not replace professional medical care.</code>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

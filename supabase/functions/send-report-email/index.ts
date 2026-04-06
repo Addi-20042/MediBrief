@@ -12,6 +12,8 @@ const MAX_NAME_LENGTH = 100;
 const MAX_NOTE_LENGTH = 2000;
 const MAX_INPUT_LENGTH = 5000;
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DEFAULT_SENDER_NAME = Deno.env.get("BREVO_SENDER_NAME") ?? "MediBrief";
+const DEFAULT_SENDER_EMAIL = Deno.env.get("BREVO_SENDER_EMAIL") ?? "raiarchana258@gmail.com";
 
 type ReportType = "symptom" | "report";
 
@@ -217,7 +219,7 @@ async function sendWithBrevo(to: string, subject: string, html: string): Promise
       Accept: "application/json",
     },
     body: JSON.stringify({
-      sender: { name: "MediBrief", email: "raiarchana2580@gmail.com" },
+      sender: { name: DEFAULT_SENDER_NAME, email: DEFAULT_SENDER_EMAIL },
       to: [{ email: to }],
       subject,
       htmlContent: html,
@@ -227,7 +229,7 @@ async function sendWithBrevo(to: string, subject: string, html: string): Promise
   if (!response.ok) {
     const errorText = await response.text();
     console.error("Brevo API error:", errorText);
-    return { success: false, error: "Failed to send email via Brevo" };
+    return { success: false, error: `Brevo error ${response.status}. ${errorText || "Failed to send email via Brevo"}` };
   }
 
   const data = await response.json();
@@ -351,14 +353,19 @@ const handler = async (req: Request): Promise<Response> => {
       patientNoteValidation.sanitized,
     );
 
-    let result = await sendWithBrevo(emailValidation.sanitized!, subject, emailHtml);
-    if (!result.success) {
-      console.log("Brevo failed or not configured, trying Resend...");
-      result = await sendWithResend(emailValidation.sanitized!, subject, emailHtml);
+    const brevoResult = await sendWithBrevo(emailValidation.sanitized!, subject, emailHtml);
+    if (brevoResult.success) {
+      return new Response(JSON.stringify({ success: true, message: "Email sent successfully" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
     }
 
-    if (!result.success) {
-      return new Response(JSON.stringify({ error: result.error || "Failed to send email. Please try again later." }), {
+    console.log("Brevo failed or not configured, trying Resend...");
+    const resendResult = await sendWithResend(emailValidation.sanitized!, subject, emailHtml);
+    if (!resendResult.success) {
+      const combinedError = [brevoResult.error, resendResult.error].filter(Boolean).join(" | ");
+      return new Response(JSON.stringify({ error: combinedError || "Failed to send email. Please try again later." }), {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },
       });
