@@ -17,6 +17,12 @@ enable_confirmations = true
 max_frequency = "1m0s"
 otp_length = 8
 
+[auth.external.google]
+enabled = true
+client_id = "1050215806885-1i8q0kuu16k82v3matptl91u005rib8g.apps.googleusercontent.com"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET)"
+skip_nonce_check = false
+
 [functions.chat]
 verify_jwt = false
 
