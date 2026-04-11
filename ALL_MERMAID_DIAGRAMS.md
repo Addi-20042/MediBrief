@@ -385,9 +385,6 @@ flowchart LR
   AD -->|admins manage content| EC
   AD -->|admins manage content| FC
 ```
-
----
-
 ## 6. Activity Diagrams - Separate User and Admin Flows
 
 These activity diagrams are separated properly into:
@@ -402,6 +399,7 @@ This makes the main product journey easier to follow without mixing patient acti
 ```mermaid
 flowchart TD
   A([Start]) --> B[Open MediBrief]
+  DB[(Supabase Database)]
   B --> C[Load app, session, and route access]
   C --> D{Authenticated session?}
 
@@ -427,55 +425,84 @@ flowchart TD
 
   M --> O[Create or validate account]
   O --> P[Sync profile, session, and access state]
+  P -->|read or create profile and account state| DB
+  DB --> P
   P --> Q[Send welcome email if new account and check medication digest]
   Q --> H
 
   H --> R{Choose user feature}
 
   R -- Dashboard --> S[View summary of profile, analyses, metrics, reminders, and recent activity]
+  S -->|read dashboard data| DB
+  DB --> S
   S --> R
 
   R -- Profile or settings --> T[Update profile, avatar, preferences, history, or sign-out]
+  T -->|read or update profile and history| DB
+  DB --> T
   T --> R
 
   R -- Symptoms --> U[Enter symptoms, run AI symptom analysis, show result, and save to history if signed in]
+  U -->|read profile context and save prediction| DB
+  DB --> U
   U --> V{Optional follow-up}
   V -- Print or download --> W[Generate symptom report]
   V -- Back --> R
   W --> R
 
   R -- Report analysis --> X[Paste or upload report, run AI report analysis, show result, and save to history if signed in]
+  X -->|save prediction history| DB
+  DB --> X
   X --> Y{Optional follow-up}
   Y -- Share by email --> AA[Send report to doctor or caregiver]
   Y -- Back --> R
   AA --> R
 
   R -- AI chat --> AB[Ask health question, stream AI response, and continue conversation]
+  AB -->|read profile context and save chat history| DB
+  DB --> AB
   AB --> R
 
   R -- Health tracking --> AC[View metrics, reminders, and medication status]
+  AC -->|read metrics, reminders, and logs| DB
+  DB --> AC
   AC --> AD{Choose tracking action}
   AD -- Save daily metrics --> AE[Upsert health metrics and refresh trends]
   AD -- Add reminder --> AF[Create medication reminder and trigger setup SMS flow]
   AD -- Log dose --> AG[Mark medication as taken or skipped]
   AD -- Delete reminder --> AH[Remove reminder]
   AD -- Back --> R
+  AE -->|write health metrics| DB
+  DB --> AE
+  AF -->|write reminder schedule| DB
+  DB --> AF
+  AG -->|write medication log| DB
+  DB --> AG
+  AH -->|delete reminder| DB
+  DB --> AH
   AE --> AC
   AF --> AC
   AG --> AC
   AH --> AC
 
   R -- History --> AI[Load saved predictions and optionally delete selected records]
+  AI -->|read or delete prediction history| DB
+  DB --> AI
   AI --> R
 
   R -- Knowledge pages --> AJ[Open learn, first-aid, or emergency pages while signed in]
+  AJ -->|read published content| DB
+  DB --> AJ
   AJ --> R
 
   Q -. login may trigger digest .-> AK[Daily medication digest check]
   AF -. active reminders enter schedule .-> AL[Reminder schedule becomes active]
   AL -. every minute .-> AM[Scheduler checks due reminders]
+  AM -. reads reminders and prior sends .-> DB
+  DB -. returns due reminder state .-> AM
   AM --> AN{Reminder due and not already handled?}
   AN -- Yes --> AO[Send reminder SMS and store SMS log]
+  AO -->|write SMS delivery log| DB
   AN -- No --> AP[Skip send]
   AO --> AM
   AP --> AM
@@ -491,6 +518,7 @@ flowchart TD
 ```mermaid
 flowchart TD
   A([Start]) --> B[Open Admin Route]
+  DB[(Supabase Database)]
   B --> C[Load session, admin flag, and route guard]
   C --> D{Authenticated?}
 
@@ -503,24 +531,38 @@ flowchart TD
   F -- Yes --> H[Open admin console]
 
   H --> I[Load overview metrics, users, audits, reminders, and managed content]
+  I -->|read admin dashboard data| DB
+  DB --> I
   I --> J{Choose admin area}
 
   J -- Overview --> K[Review total users, active users, hidden predictions, reminders, admins, and recent actions]
   K --> J
 
   J -- Users --> L[Search users and filter account status]
+  L -->|read user and account data| DB
+  DB --> L
   L --> M{Choose user operation}
   M -- View detail --> N[Inspect profile, predictions, reminders, and medication logs]
   M -- Activate or deactivate user --> O[Update account status and record audit log]
   M -- Hide or unhide prediction --> P[Update prediction visibility and record audit log]
   M -- Activate or deactivate reminder --> Q[Update reminder status and record audit log]
   M -- Back --> J
+  N -->|read profile, predictions, reminders, and logs| DB
+  DB --> N
+  O -->|update user status and write audit record| DB
+  DB --> O
+  P -->|update prediction visibility and write audit record| DB
+  DB --> P
+  Q -->|update reminder status and write audit record| DB
+  DB --> Q
   N --> M
   O --> M
   P --> M
   Q --> M
 
   J -- Audit log --> R[Filter and review admin audit records]
+  R -->|read audit history| DB
+  DB --> R
   R --> J
 
   J -- Content management --> S{Choose content type}
@@ -529,6 +571,14 @@ flowchart TD
   S -- Emergency contacts --> V[Create, edit, publish, or delete emergency contacts]
   S -- Feature cards --> W[Create, edit, publish, or delete dashboard feature cards]
   S -- Back --> J
+  T -->|write disease content and audit changes| DB
+  DB --> T
+  U -->|write first-aid content and audit changes| DB
+  DB --> U
+  V -->|write emergency contacts and audit changes| DB
+  DB --> V
+  W -->|write feature cards and audit changes| DB
+  DB --> W
   T --> J
   U --> J
   V --> J
@@ -1121,196 +1171,217 @@ flowchart LR
 
 ## 9. State Diagram - Complete Medication Reminder Statechart
 
-This statechart rebuilds the reminder lifecycle from start to end in a more complete way. It includes form entry, validation, database save, setup SMS behavior, active monitoring, login digest participation, scheduled due checks, dose logging, admin deactivation, completion, and deletion.
+This PlantUML statechart shows the medication reminder lifecycle from start to end: opening the form, validation, database save, setup SMS attempt, active scheduling, login digest participation, scheduled due checks, dose logging, pause/reactivation, completion, and final deletion.
 
-```mermaid
-stateDiagram-v2
-  [*] --> Draft: user opens Add Medication form
+```plantuml
+@startuml
+title Complete Medication Reminder Statechart
+hide empty description
 
-  Draft --> Validating: submit medication name, dosage, frequency, and times
-  Validating --> ValidationError: missing fields or invalid / duplicate reminder times
-  ValidationError --> Draft: user corrects input
+[*] --> Draft : User opens Add Medication form
 
-  Validating --> SavingReminder: input is valid
-  SavingReminder --> SaveFailed: database insert fails
-  SaveFailed --> Draft: retry save
+Draft --> Validating : Submit medication name,\ndosage, frequency, and reminder times
+Validating --> ValidationError : Missing fields /\ninvalid or duplicate times
+ValidationError --> Draft : User corrects input
 
-  SavingReminder --> ReminderSaved: medication_reminders row created
+Validating --> SavingReminder : Input is valid
+SavingReminder --> SaveFailed : Database insert fails
+SaveFailed --> Draft : Retry save
 
-  ReminderSaved --> SetupSmsCheck: trigger = schedule_created
-  SetupSmsCheck --> SetupSmsSent: phone exists, delivery key reserved, Twilio accepted
-  SetupSmsCheck --> SetupSmsSkipped: phone missing or setup SMS already sent
-  SetupSmsCheck --> SetupSmsFailed: provider error, invalid number, or config issue
+SavingReminder --> ReminderSaved : medication_reminders row created
 
-  SetupSmsSent --> ActiveLifecycle
-  SetupSmsSkipped --> ActiveLifecycle
-  SetupSmsFailed --> ActiveLifecycle
+state ReminderSaved {
+  [*] --> SetupSmsCheck
+  SetupSmsCheck --> SetupSmsSent : schedule_created SMS sent
+  SetupSmsCheck --> SetupSmsSkipped : No phone number /\nSMS already handled
+  SetupSmsCheck --> SetupSmsFailed : Provider or config error
+}
 
-  state ActiveLifecycle {
-    [*] --> AvailabilityCheck
+ReminderSaved --> ActiveLifecycle
 
-    AvailabilityCheck --> WaitingForStartDate: start_date is in the future
-    AvailabilityCheck --> MonitoringSchedule: current date is within active range
+state ActiveLifecycle {
+  [*] --> AvailabilityCheck
 
-    WaitingForStartDate --> MonitoringSchedule: start_date reached
+  AvailabilityCheck --> WaitingForStartDate : start_date is in the future
+  AvailabilityCheck --> MonitoringSchedule : current date is active
 
-    MonitoringSchedule --> LoginDigestCheck: user signs in
-    LoginDigestCheck --> MonitoringSchedule: digest sent, skipped, or already sent today
+  WaitingForStartDate --> MonitoringSchedule : start date reached
 
-    MonitoringSchedule --> DueCheck: scheduler runs near reminder time
-    DueCheck --> MonitoringSchedule: no matching reminder time yet
-    DueCheck --> DueSuppressed: end_date passed, inactive, duplicate SMS, no phone, or dose already logged
-    DueCheck --> DueSmsSent: scheduled time matched and SMS delivered
-    DueCheck --> DueSmsFailed: Twilio or provider error
+  MonitoringSchedule --> LoginDigestCheck : User signs in
+  LoginDigestCheck --> MonitoringSchedule : digest sent / skipped /\nalready sent today
 
-    DueSuppressed --> AwaitingDoseAction
-    DueSmsSent --> AwaitingDoseAction
-    DueSmsFailed --> AwaitingDoseAction
+  MonitoringSchedule --> DueCheck : Scheduler runs
+  DueCheck --> MonitoringSchedule : no matching reminder time
+  DueCheck --> DueSuppressed : inactive / ended /\nno phone / duplicate send /\ndose already logged
+  DueCheck --> DueSmsSent : reminder due and SMS delivered
+  DueCheck --> DueSmsFailed : provider send fails
 
-    AwaitingDoseAction --> DoseTaken: user marks dose as taken
-    AwaitingDoseAction --> DoseSkipped: user marks dose as skipped
+  DueSuppressed --> AwaitingDoseAction
+  DueSmsSent --> AwaitingDoseAction
+  DueSmsFailed --> AwaitingDoseAction
 
-    DoseTaken --> NextDoseDecision
-    DoseSkipped --> NextDoseDecision
+  AwaitingDoseAction --> DoseTaken : User marks dose taken
+  AwaitingDoseAction --> DoseSkipped : User marks dose skipped
 
-    NextDoseDecision --> MonitoringSchedule: another dose time or another valid day remains
-    NextDoseDecision --> Completed: end_date passed and no future doses remain
+  DoseTaken --> NextDoseDecision
+  DoseSkipped --> NextDoseDecision
 
-    MonitoringSchedule --> Completed: end_date passed
-    MonitoringSchedule --> Deactivated: admin or user disables reminder
-    Deactivated --> MonitoringSchedule: reminder re-enabled
-  }
+  NextDoseDecision --> MonitoringSchedule : future dose still remains
+  NextDoseDecision --> Completed : no future dose remains
 
-  ActiveLifecycle --> Deleted: user deletes reminder
-  Completed --> Deleted: finished reminder removed
-  Deleted --> [*]
+  MonitoringSchedule --> Deactivated : User or admin disables reminder
+  Deactivated --> MonitoringSchedule : Reminder re-enabled
 
-  note right of SetupSmsCheck
-    Immediately after creation, the app tries the schedule_created SMS flow.
-    If SMS fails, the reminder still remains saved and active in the database.
-  end note
+  MonitoringSchedule --> Completed : end_date passed /\nschedule finished
+}
 
-  note right of LoginDigestCheck
-    On sign-in, active reminders may be included in a daily login_digest SMS.
-    This is informational and does not change the reminder's core schedule.
-  end note
+ActiveLifecycle --> Deleted : User deletes reminder
+Completed --> Deleted : Finished reminder removed
+Deleted --> [*]
 
-  note right of DueCheck
-    The scheduled job runs every minute.
-    It checks active reminders, date range, current India time,
-    existing medication_logs, and medication_sms_logs before sending.
-  end note
+note right of SavingReminder
+  The reminder is stored in the database before
+  any notification flow begins.
+end note
+
+note right of SetupSmsCheck
+  After creation, the app may invoke the
+  schedule_created SMS flow.
+  Even if SMS fails, the reminder stays saved.
+end note
+
+note right of DueCheck
+  The scheduler checks active reminders,
+  time window, prior medication logs,
+  and SMS delivery records before sending.
+end note
+
+note right of DoseTaken
+  Logging a dose creates a medication_logs entry.
+  SMS attempts are tracked separately in medication_sms_logs.
+end note
+
+@enduml
 ```
 
 ---
 
 ## 10. Class Diagram - Code-Accurate Module and Domain View
 
-This diagram is rebuilt to match the actual MediBrief codebase more closely. Because the project is mostly written with functional React components and module-level utilities rather than traditional OOP classes, this Mermaid class diagram uses UML visibility as follows:
+This class diagram is rewritten in PlantUML and focuses on the most useful architectural classes in the codebase: the application shell, auth and service modules, core pages, edge functions, and the main database entities. Because the project is mostly functional React modules rather than classic OOP classes, the diagram uses PlantUML classes with stereotypes such as `<<page>>`, `<<module>>`, `<<service>>`, `<<edge function>>`, and `<<entity>>`.
 
-- `+` means exported/public API or externally reachable entrypoint
-- `-` means internal helper or local module function
-- `#` is intentionally not used here because the current app code does not define its own protected members
+```plantuml
+@startuml
+title MediBrief Class Diagram
+left to right direction
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
 
-It covers the app-owned frontend modules, real class components, edge-function modules, and the main database/domain entities, then joins them so the runtime and data relationships are visible in one place.
-
-```mermaid
-classDiagram
-  direction LR
-
-  class AppShell {
-    <<module>>
+package "Frontend App" {
+  class AppShell <<module>> {
     +App()
-    -AnimatedRoutes()
-    -SkeletonPage()
   }
 
-  class AuthContextModule {
-    <<module>>
+  class AuthContextModule <<module>> {
     +AuthProvider(children)
     +useAuth()
     -syncAccessState(currentUser)
   }
 
-  class SupabaseClient {
-    <<module>>
+  class ErrorBoundary <<component>> {
+    +render()
+  }
+
+  class RouteErrorBoundary <<component>> {
+    +render()
+  }
+}
+
+package "Pages" {
+  class DashboardPage <<page>> {
+    +Dashboard()
+    -fetchDashboardData(userId)
+  }
+
+  class SymptomsPage <<page>> {
+    +Symptoms()
+    -analyzeSymptoms()
+  }
+
+  class UploadReportPage <<page>> {
+    +UploadReport()
+    -analyzeReport()
+    -handleFileUpload(event)
+  }
+
+  class ChatbotPage <<page>> {
+    +Chatbot()
+    -sendMessage(messageText)
+  }
+
+  class HealthTrackingPage <<page>> {
+    +HealthTracking()
+    -handleSaveMetrics()
+    -handleAddMedication()
+    -handleLogMedication(reminderId, scheduledTime, taken)
+  }
+
+  class ProfilePage <<page>> {
+    +Profile()
+    -handleSave()
+    -handleAvatarUpload(event)
+  }
+
+  class SettingsPage <<page>> {
+    +Settings()
+    -handleDeleteHistory()
+    -handleSignOut()
+  }
+
+  class AdminPage <<page>> {
+    +Admin()
+  }
+}
+
+package "Frontend Services and Utilities" {
+  class SupabaseClient <<module>> {
     +supabase
     +from(table)
     +rpc(name, args)
-    +invokeFunction(name, body)
-    +signUp(payload)
-    +signInWithPassword(payload)
-    +signInWithOAuth(payload)
-    +signOut()
-    +getSession()
-    +openStorageBucket(bucket)
+    +invoke(functionName, body)
   }
 
-  class RequestTimeoutError {
-    +RequestTimeoutError(fnName, ms)
-  }
-
-  class FetchWithTimeoutModule {
-    <<module>>
-    +getFunctionErrorMessage(error, fallback)
+  class FetchWithTimeoutModule <<module>> {
     +withTimeout(promise, ms, label)
-    +withRetry(fn, maxRetries, label)
-    -normalizeFunctionErrorMessage(message, fallback)
-    -readResponseErrorMessage(response)
+    +withRetry(fn, retries, label)
   }
 
-  class HealthDataModule {
-    <<module>>
-    +getPredictionDiseaseName(disease)
-    +toPredictionDiseases(value)
-    +getAgeFromDateOfBirth(dateOfBirth)
+  class RequestTimeoutError <<error>>
+
+  class HealthDataModule <<module>> {
     +getHealthProfileFacts(profile)
     +buildHealthProfilePrompt(profile, options)
-    -isPredictionDisease(value)
+    +toPredictionDiseases(value)
   }
 
-  class MedicationReminderUtils {
-    <<module>>
-    +MEDICATION_FREQUENCY_OPTIONS
+  class MedicationReminderUtils <<module>> {
     +getFrequencyLabel(frequency)
-    +getReminderTimesCount(frequency)
     +getDefaultReminderTimes(frequency)
     +syncReminderTimesWithFrequency(frequency, reminderTimes)
-    +formatReminderTimes(reminderTimes)
   }
 
-  class ProfileValidationModule {
-    <<module>>
-    +patientNameSchema
-    +optionalPhoneSchema
-    +requiredPhoneSchema
+  class ProfileValidationModule <<module>> {
     +normalizePatientName(value)
     +normalizePhoneNumber(value)
   }
 
-  class ReportExportService {
-    <<module>>
-    +getProbabilityPercent(probability)
-    +getProbabilityLabel(probability)
-    +generateReportHTML(data)
-    +generateReportText(data)
+  class ReportExportService <<service>> {
     +downloadReportPDF(data)
     +downloadReportHTML(data)
-    +downloadReport(data)
-    +downloadReportText(data)
     +printReport(data)
-    +exportReport(data, format)
-    -escapeHtml(value)
-    -toSafeText(value)
-    -toSafeList(values)
-    -getReportKind(title)
-    -getFileStamp()
-    -buildTopicCards(conditions)
-    -buildReportBody(data)
   }
 
-  class AdminService {
-    <<module>>
+  class AdminService <<service>> {
     +getAdminOverview()
     +listAdminUsers(searchTerm, statusFilter)
     +getAdminUserDetail(userId)
@@ -1318,488 +1389,258 @@ classDiagram
     +setPredictionVisibility(predictionId, nextIsHidden, reason)
     +setMedicationReminderStatus(reminderId, nextIsActive, reason)
     +listAdminAuditLogs(actionFilter)
-    -parseJsonResult(value)
   }
 
-  class AdminContentService {
-    <<module>>
-    +appFeatureIconOptions
-    +getAppFeatureIcon(iconName)
-    +mapCustomDiseaseToDisease(entry)
+  class AdminContentService <<service>> {
     +listPublishedCustomDiseases()
     +listAdminCustomDiseases()
     +createCustomDisease(values)
     +updateCustomDisease(id, values)
     +deleteCustomDisease(id)
-    +listPublishedCustomFirstAidGuides()
-    +listAdminCustomFirstAidGuides()
-    +createCustomFirstAidGuide(values)
-    +updateCustomFirstAidGuide(id, values)
-    +deleteCustomFirstAidGuide(id)
-    +listPublishedCustomEmergencyContacts()
-    +listAdminCustomEmergencyContacts()
-    +createCustomEmergencyContact(values)
-    +updateCustomEmergencyContact(id, values)
-    +deleteCustomEmergencyContact(id)
     +listPublishedAppFeatureCards()
-    +listAdminAppFeatureCards()
-    +createAppFeatureCard(values)
-    +updateAppFeatureCard(id, values)
-    +deleteAppFeatureCard(id)
-    -appFeatureIconMap
   }
+}
 
-  class ErrorBoundary {
-    <<component>>
-    +state
-    +getDerivedStateFromError()
-    +componentDidCatch(error, info)
-    +handleReload()
-    +render()
-  }
-
-  class RouteErrorBoundaryInner {
-    <<component>>
-    +state
-    +getDerivedStateFromError(error)
-    +componentDidCatch(error, info)
-    +handleRetry()
-    +handleGoHome()
-    +render()
-  }
-
-  class RouteErrorBoundary {
-    <<module>>
-    +RouteErrorBoundary(children, fallbackRoute)
-  }
-
-  class DashboardPage {
-    <<page>>
-    +Dashboard()
-    -fetchDashboardData(userId)
-    -getPredictionDiseaseName(disease)
-    -getPredictionDiseaseProbability(disease)
-    -getPredictionDiseaseUrgency(disease)
-    -getHealthScoreColor(score)
-    -getHealthScoreLabel(score)
-  }
-
-  class SymptomsPage {
-    <<page>>
-    +Symptoms()
-    -analyzeSymptoms()
-    -handlePrint()
-    -handleDownload()
-    -getUrgencyColor(urgency)
-    -getProbabilityColor(probability)
-  }
-
-  class UploadReportPage {
-    <<page>>
-    +UploadReport()
-    -handleFileUpload(event)
-    -analyzeReport()
-    -handlePrint()
-    -handleDownload()
-    -clearFile()
-    -getStatusColor(status)
-    -getLikelihoodColor(likelihood)
-  }
-
-  class ChatbotPage {
-    <<page>>
-    +Chatbot()
-    -streamChat(userMessages)
-    -sendMessage(messageText)
-    -clearChat()
-    -handleKeyPress(event)
-  }
-
-  class HealthTrackingPage {
-    <<page>>
-    +HealthTracking()
-    -fetchData()
-    -fetchMetricsForDate(date)
-    -handleSaveMetrics()
-    -handleMedicationFrequencyChange(frequency)
-    -handleReminderTimeChange(index, value)
-    -handleAddMedication()
-    -handleLogMedication(reminderId, scheduledTime, taken)
-    -handleDeleteReminder(id)
-    -getMoodIcon(mood)
-    -getDoseLog(reminder, scheduledTime)
-    -getCompletedDoseCount(reminder)
-  }
-
-  class ProfilePage {
-    <<page>>
-    +Profile()
-    -fetchProfile()
-    -handleAvatarUpload(event)
-    -handleSave()
-    -getInitials()
-  }
-
-  class SettingsPage {
-    <<page>>
-    +Settings()
-    -fetchProfile()
-    -handleDeleteHistory()
-    -handleSignOut()
-  }
-
-  class AdminPage {
-    <<page>>
-    +Admin()
-  }
-
-  class AnalyzeSymptomsFn {
-    <<edge function>>
+package "Supabase Edge Functions" {
+  class AnalyzeSymptomsFn <<edge function>> {
     +serve(req)
-    -sanitizeText(text)
-    -validateSymptoms(symptoms)
-    -getAiApiKey()
-    -getProviderErrorMessage(providerName, status, rawText)
   }
 
-  class AnalyzeReportFn {
-    <<edge function>>
+  class AnalyzeReportFn <<edge function>> {
     +serve(req)
-    -sanitizeText(text)
-    -validateReportText(reportText)
-    -getAiApiKey()
-    -getProviderErrorMessage(providerName, status, rawText)
-    -isSupportedDocumentMimeType(mimeType)
   }
 
-  class MedicalChatFn {
-    <<edge function>>
+  class MedicalChatFn <<edge function>> {
     +serve(req)
-    -sanitizeText(text)
-    -validateMessages(messages)
-    -getAiApiKey()
-    -getProviderErrorMessage(providerName, status, rawText)
-    -getStreamingResponse(messages)
   }
 
-  class SendReportEmailFn {
-    <<edge function>>
+  class SendReportEmailFn <<edge function>> {
     +handler(req)
-    -escapeHtml(text)
-    -validateEmail(email)
-    -validateOptionalString(value, fieldName, maxLength)
-    -validateReport(report)
-    -getPredictionName(prediction)
-    -getPredictionDescription(prediction)
-    -buildEmailHtml(report, recipientName)
   }
 
-  class SendWelcomeEmailFn {
-    <<edge function>>
+  class SendWelcomeEmailFn <<edge function>> {
     +handler(req)
-    -escapeHtml(text)
-    -buildWelcomeHtml(name)
   }
 
-  class SendMedicationRemindersFn {
-    <<edge function>>
+  class SendMedicationRemindersFn <<edge function>> {
     +serve(req)
-    -normalizePhoneNumber(phoneNumber)
-    -getIndiaDateTime()
-    -getFrequencyLabel(frequency)
-    -formatTimes(times)
-    -getGreetingName(fullName)
-    -truncateMessage(message, maxLength)
-    -sendTwilioSms(to, body)
-    -reserveDelivery(supabase, payload)
-    -releaseDelivery(supabase, deliveryKey)
-    -getAuthenticatedUserId(req, supabaseUrl, supabaseAnonKey)
-    -requireMatchingUser(authenticatedUserId, requestedUserId)
-    -requireCronSecret(req)
-    -maybeSingleReminder(supabase, reminderId)
-    -getUserProfile(supabase, userId)
-    -buildCreatedScheduleMessage(patientName, reminder)
-    -buildLoginDigestMessage(patientName, reminders)
-    -buildDueReminderMessage(patientName, reminder, scheduledTime)
-    -getMatchedReminderTime(reminderTimes, currentTime)
-    -sendScheduleCreatedSms(supabase, userId, reminderId)
-    -sendLoginDigestSms(supabase, userId)
-    -sendScheduledDueSms(supabase)
   }
+}
 
-  class UserAccount {
-    <<entity>>
+package "Domain Entities" {
+  class UserAccount <<entity>> {
     +id: uuid
     +email: string
     +created_at: datetime
   }
 
-  class Profile {
-    <<entity>>
+  class Profile <<entity>> {
     +user_id: uuid
     +full_name: string
     +phone_number: string
-    +date_of_birth: date
-    +gender: string
     +blood_type: string
-    +height_cm: number
-    +weight_kg: number
-    +allergies: string
-    +medical_conditions: string
     +avatar_url: string
     +is_account_active: boolean
-    +account_status_reason: string
   }
 
-  class Prediction {
-    <<entity>>
+  class Prediction <<entity>> {
     +id: uuid
     +user_id: uuid
     +prediction_type: string
-    +input_data: string
-    +predicted_diseases: json
     +summary: string
     +is_hidden: boolean
-    +hidden_reason: string
-    +created_at: datetime
   }
 
-  class ChatHistory {
-    <<entity>>
+  class ChatHistory <<entity>> {
     +id: uuid
     +user_id: uuid
     +messages: json
-    +updated_at: datetime
   }
 
-  class HealthMetric {
-    <<entity>>
+  class HealthMetric <<entity>> {
     +id: uuid
     +user_id: uuid
     +metric_date: date
     +weight: number
-    +blood_pressure_systolic: number
-    +blood_pressure_diastolic: number
     +heart_rate: number
-    +blood_sugar: number
-    +sleep_hours: number
-    +water_intake: number
-    +steps: number
     +mood: string
-    +notes: string
   }
 
-  class MedicationReminder {
-    <<entity>>
+  class MedicationReminder <<entity>> {
     +id: uuid
     +user_id: uuid
     +medication_name: string
-    +dosage: string
     +frequency: string
     +reminder_times: string[]
-    +start_date: date
-    +end_date: date
     +is_active: boolean
-    +status_reason: string
-    +notes: string
   }
 
-  class MedicationLog {
-    <<entity>>
+  class MedicationLog <<entity>> {
     +id: uuid
     +user_id: uuid
     +reminder_id: uuid
-    +scheduled_time: string
     +taken_at: datetime
     +skipped: boolean
-    +notes: string
   }
 
-  class MedicationSmsLog {
-    <<entity>>
+  class MedicationSmsLog <<entity>> {
     +id: uuid
     +user_id: uuid
     +reminder_id: uuid
-    +delivery_key: string
     +notification_type: string
-    +phone_number: string
-    +created_at: datetime
+    +delivery_key: string
   }
 
-  class AdminUser {
-    <<entity>>
+  class AdminUser <<entity>> {
     +user_id: uuid
     +role: string
     +is_active: boolean
-    +created_at: datetime
   }
 
-  class AdminAuditLog {
-    <<entity>>
+  class AdminAuditLog <<entity>> {
     +id: uuid
     +admin_user_id: uuid
     +target_user_id: uuid
-    +entity_type: string
-    +entity_id: uuid
     +action: string
     +reason: string
-    +created_at: datetime
   }
 
-  class CustomDisease {
-    <<entity>>
+  class CustomDisease <<entity>> {
     +id: uuid
     +name: string
     +category: string
-    +description: string
-    +symptoms: json
-    +causes: json
-    +prevention: json
-    +treatment: json
-    +risk_factors: json
-    +when_to_see_doctor: string
     +is_published: boolean
   }
 
-  class CustomFirstAidGuide {
-    <<entity>>
+  class CustomFirstAidGuide <<entity>> {
     +id: uuid
     +title: string
-    +overview: string
-    +steps: json
-    +do_not: json
     +is_published: boolean
   }
 
-  class CustomEmergencyContact {
-    <<entity>>
+  class CustomEmergencyContact <<entity>> {
     +id: uuid
     +name: string
     +number: string
-    +description: string
-    +country: string
-    +priority: string
     +is_published: boolean
   }
 
-  class AppFeatureCard {
-    <<entity>>
+  class AppFeatureCard <<entity>> {
     +id: uuid
     +title: string
-    +description: string
     +href: string
-    +icon_name: string
     +display_order: number
     +is_published: boolean
   }
+}
 
-  AppShell ..> AuthContextModule
-  AppShell ..> ErrorBoundary
-  AppShell ..> RouteErrorBoundary
-  AppShell ..> DashboardPage
-  AppShell ..> SymptomsPage
-  AppShell ..> UploadReportPage
-  AppShell ..> ChatbotPage
-  AppShell ..> HealthTrackingPage
-  AppShell ..> ProfilePage
-  AppShell ..> SettingsPage
-  AppShell ..> AdminPage
+AppShell ..> AuthContextModule
+AppShell ..> ErrorBoundary
+AppShell ..> RouteErrorBoundary
+AppShell ..> DashboardPage
+AppShell ..> SymptomsPage
+AppShell ..> UploadReportPage
+AppShell ..> ChatbotPage
+AppShell ..> HealthTrackingPage
+AppShell ..> ProfilePage
+AppShell ..> SettingsPage
+AppShell ..> AdminPage
 
-  AuthContextModule ..> SupabaseClient
-  AuthContextModule ..> SendWelcomeEmailFn
-  AuthContextModule ..> SendMedicationRemindersFn
+AuthContextModule ..> SupabaseClient
+AuthContextModule ..> SendWelcomeEmailFn
+AuthContextModule ..> SendMedicationRemindersFn
 
-  FetchWithTimeoutModule ..> RequestTimeoutError
+FetchWithTimeoutModule ..> RequestTimeoutError
 
-  DashboardPage ..> AuthContextModule
-  DashboardPage ..> SupabaseClient
-  DashboardPage ..> AdminContentService
-  DashboardPage ..> Prediction
-  DashboardPage ..> Profile
-  DashboardPage ..> HealthMetric
-  DashboardPage ..> MedicationReminder
-  DashboardPage ..> MedicationLog
-  DashboardPage ..> AppFeatureCard
+DashboardPage ..> AuthContextModule
+DashboardPage ..> SupabaseClient
+DashboardPage ..> AdminContentService
+DashboardPage ..> Profile
+DashboardPage ..> Prediction
+DashboardPage ..> HealthMetric
+DashboardPage ..> MedicationReminder
+DashboardPage ..> MedicationLog
+DashboardPage ..> AppFeatureCard
 
-  SymptomsPage ..> AuthContextModule
-  SymptomsPage ..> SupabaseClient
-  SymptomsPage ..> FetchWithTimeoutModule
-  SymptomsPage ..> HealthDataModule
-  SymptomsPage ..> ReportExportService
-  SymptomsPage ..> Profile
-  SymptomsPage ..> Prediction
-  SymptomsPage ..> AnalyzeSymptomsFn
+SymptomsPage ..> AuthContextModule
+SymptomsPage ..> FetchWithTimeoutModule
+SymptomsPage ..> HealthDataModule
+SymptomsPage ..> ReportExportService
+SymptomsPage ..> AnalyzeSymptomsFn
+SymptomsPage ..> Prediction
 
-  UploadReportPage ..> AuthContextModule
-  UploadReportPage ..> SupabaseClient
-  UploadReportPage ..> FetchWithTimeoutModule
-  UploadReportPage ..> ReportExportService
-  UploadReportPage ..> Prediction
-  UploadReportPage ..> AnalyzeReportFn
-  UploadReportPage ..> SendReportEmailFn
+UploadReportPage ..> AuthContextModule
+UploadReportPage ..> FetchWithTimeoutModule
+UploadReportPage ..> ReportExportService
+UploadReportPage ..> AnalyzeReportFn
+UploadReportPage ..> SendReportEmailFn
+UploadReportPage ..> Prediction
 
-  ChatbotPage ..> AuthContextModule
-  ChatbotPage ..> SupabaseClient
-  ChatbotPage ..> HealthDataModule
-  ChatbotPage ..> FetchWithTimeoutModule
-  ChatbotPage ..> MedicalChatFn
-  ChatbotPage ..> Profile
+ChatbotPage ..> AuthContextModule
+ChatbotPage ..> FetchWithTimeoutModule
+ChatbotPage ..> HealthDataModule
+ChatbotPage ..> MedicalChatFn
+ChatbotPage ..> ChatHistory
+ChatbotPage ..> Profile
 
-  HealthTrackingPage ..> AuthContextModule
-  HealthTrackingPage ..> SupabaseClient
-  HealthTrackingPage ..> MedicationReminderUtils
-  HealthTrackingPage ..> HealthMetric
-  HealthTrackingPage ..> MedicationReminder
-  HealthTrackingPage ..> MedicationLog
-  HealthTrackingPage ..> SendMedicationRemindersFn
+HealthTrackingPage ..> AuthContextModule
+HealthTrackingPage ..> SupabaseClient
+HealthTrackingPage ..> MedicationReminderUtils
+HealthTrackingPage ..> SendMedicationRemindersFn
+HealthTrackingPage ..> HealthMetric
+HealthTrackingPage ..> MedicationReminder
+HealthTrackingPage ..> MedicationLog
 
-  ProfilePage ..> AuthContextModule
-  ProfilePage ..> SupabaseClient
-  ProfilePage ..> ProfileValidationModule
-  ProfilePage ..> Profile
+ProfilePage ..> AuthContextModule
+ProfilePage ..> SupabaseClient
+ProfilePage ..> ProfileValidationModule
+ProfilePage ..> Profile
 
-  SettingsPage ..> AuthContextModule
-  SettingsPage ..> SupabaseClient
-  SettingsPage ..> Profile
-  SettingsPage ..> Prediction
+SettingsPage ..> AuthContextModule
+SettingsPage ..> SupabaseClient
+SettingsPage ..> Profile
+SettingsPage ..> Prediction
 
-  AdminPage ..> AuthContextModule
-  AdminPage ..> AdminService
-  AdminPage ..> AdminContentService
-  AdminPage ..> AdminUser
-  AdminPage ..> AdminAuditLog
-  AdminPage ..> Prediction
-  AdminPage ..> MedicationReminder
-  AdminPage ..> MedicationLog
-  AdminPage ..> CustomDisease
-  AdminPage ..> CustomFirstAidGuide
-  AdminPage ..> CustomEmergencyContact
-  AdminPage ..> AppFeatureCard
+AdminPage ..> AuthContextModule
+AdminPage ..> AdminService
+AdminPage ..> AdminContentService
+AdminPage ..> AdminUser
+AdminPage ..> AdminAuditLog
+AdminPage ..> Prediction
+AdminPage ..> MedicationReminder
+AdminPage ..> MedicationLog
+AdminPage ..> CustomDisease
+AdminPage ..> CustomFirstAidGuide
+AdminPage ..> CustomEmergencyContact
+AdminPage ..> AppFeatureCard
 
-  AdminService ..> SupabaseClient
-  AdminContentService ..> SupabaseClient
+AdminService ..> SupabaseClient
+AdminContentService ..> SupabaseClient
 
-  SendMedicationRemindersFn ..> Profile
-  SendMedicationRemindersFn ..> MedicationReminder
-  SendMedicationRemindersFn ..> MedicationLog
-  SendMedicationRemindersFn ..> MedicationSmsLog
+SendMedicationRemindersFn ..> Profile
+SendMedicationRemindersFn ..> MedicationReminder
+SendMedicationRemindersFn ..> MedicationLog
+SendMedicationRemindersFn ..> MedicationSmsLog
 
-  UserAccount --> Profile
-  UserAccount --> Prediction
-  UserAccount --> ChatHistory
-  UserAccount --> HealthMetric
-  UserAccount --> MedicationReminder
-  UserAccount --> MedicationLog
-  UserAccount --> MedicationSmsLog
-  UserAccount --> AdminUser
+UserAccount "1" -- "1" Profile
+UserAccount "1" -- "*" Prediction
+UserAccount "1" -- "*" ChatHistory
+UserAccount "1" -- "*" HealthMetric
+UserAccount "1" -- "*" MedicationReminder
+UserAccount "1" -- "*" MedicationLog
+UserAccount "1" -- "*" MedicationSmsLog
+UserAccount "1" -- "0..1" AdminUser
 
-  MedicationReminder --> MedicationLog
-  MedicationReminder --> MedicationSmsLog
-  AdminUser --> AdminAuditLog
-  AdminUser --> CustomDisease
-  AdminUser --> CustomFirstAidGuide
-  AdminUser --> CustomEmergencyContact
-  AdminUser --> AppFeatureCard
+MedicationReminder "1" -- "*" MedicationLog
+MedicationReminder "1" -- "*" MedicationSmsLog
+
+AdminUser "1" -- "*" AdminAuditLog
+AdminUser "1" -- "*" CustomDisease
+AdminUser "1" -- "*" CustomFirstAidGuide
+AdminUser "1" -- "*" CustomEmergencyContact
+AdminUser "1" -- "*" AppFeatureCard
+
+@enduml
 ```
 
 ---
