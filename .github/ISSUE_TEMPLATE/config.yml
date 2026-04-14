@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Documentation
+    url: https://github.com/Addi-20042/health-compass-ai#readme
+    about: Read the repository overview, setup steps, and deployment notes before opening an issue.
