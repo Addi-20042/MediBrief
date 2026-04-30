@@ -5,30 +5,27 @@ Use this in a repository named exactly `Addi-20042` so it appears on your GitHub
 ```md
 # Hi, I'm Aditya
 
-I build full-stack web applications with **React, TypeScript, Supabase, SQL, and modern UI systems**. I like working on products that combine useful interfaces, real backend workflows, and thoughtful developer experience.
+Full-stack developer focused on building polished web applications with **React, TypeScript, Supabase, SQL, and modern UI systems**.
 
-Right now I am focused on:
-- building production-style full-stack apps
-- improving system design and documentation
-- shipping projects that are clear, polished, and easy for recruiters to evaluate
+I enjoy working on products that combine frontend UX, backend workflows, database design, and clear documentation.
+
+Open to internships and entry-level software roles where I can contribute across frontend, backend, and product delivery.
 
 ## Featured Work
 
 ### MediBrief
-AI-powered health assistant with symptom analysis, medical report understanding, chatbot workflows, health tracking, medication reminders, and an admin console.
+AI-powered health assistant that helps users analyze symptoms, understand medical reports, track daily health metrics, manage medication reminders, and use an AI chat workflow from one product.
 
 [Repository](https://github.com/Addi-20042/MediBrief) | [Live Demo](https://project-14snn.vercel.app)
 
 ![MediBrief Hero](https://raw.githubusercontent.com/Addi-20042/MediBrief/main/docs/github/screenshots/homepage-hero.png)
-![MediBrief Features](https://raw.githubusercontent.com/Addi-20042/MediBrief/main/docs/github/screenshots/homepage-features.png)
 
-**Features**
-- AI symptom analysis
-- Medical report analysis
-- Health tracking
-- Medication reminders
-- AI chatbot
-- Admin console
+**What recruiters can review here**
+- React + TypeScript frontend architecture
+- Supabase auth, PostgreSQL schema design, and SQL migrations
+- Edge-function integrations for AI, email, and reminder workflows
+- Real product features including report analysis, symptom analysis, health tracking, and admin tools
+- Deployment-ready documentation and end-to-end product ownership
 
 **Tech Stack**
 - React
@@ -40,39 +37,18 @@ AI-powered health assistant with symptom analysis, medical report understanding,
 - shadcn/ui
 - Edge Functions
 
-**How it works**
-- Users enter symptoms, upload reports, or open chat and tracking tools.
-- The frontend sends requests to Supabase-backed services and edge functions.
-- The app returns structured health insights, saves history, and powers reminders for signed-in users.
-
-### Add your next 2 strongest projects here
-- One frontend-heavy project
-- One backend or full-stack project
-
-## What I Work With
+## Core Stack
 
 - Frontend: React, TypeScript, Vite, Tailwind CSS, shadcn/ui
-- Backend: Supabase, PostgreSQL, SQL migrations, serverless functions
+- Backend: Supabase, PostgreSQL, SQL, serverless and edge functions
 - Tools: Git, GitHub, Vercel, Figma, Postman
 
-## What I Care About
+## What I Value
 
-- clean and readable code
-- practical UI and product thinking
-- documentation that helps people understand the work fast
-- shipping projects that feel real, not just tutorial clones
-
-## Currently Improving
-
-- system design communication
-- production-ready repo organization
-- stronger testing and deployment workflows
-
-## Connect
-
-- LinkedIn: add-your-link
-- Portfolio: add-your-link
-- Email: add-your-email
+- clean, readable code
+- practical product thinking
+- polished UI with useful workflows
+- documentation that helps reviewers understand the work fast
 ```
 
 ## Profile Bio Suggestions

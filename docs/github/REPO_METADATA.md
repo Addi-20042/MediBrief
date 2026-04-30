@@ -29,7 +29,7 @@ Aim for 4 to 6 pinned repositories with variety:
 
 ## Current Best Candidate
 
-### `health-compass-ai`
+### `MediBrief`
 
 Recommended repository description:
 
