@@ -55,7 +55,7 @@ This repository is designed to showcase end-to-end product work: frontend UX, au
 
 ### External Services
 
-- Gemini or Lovable gateway for AI analysis
+- Gemini AI analysis
 - Resend or Brevo for email delivery
 - Twilio for SMS reminders
 
