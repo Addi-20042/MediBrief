@@ -4,14 +4,21 @@ MediBrief is a full-stack health assistant built with React, TypeScript, Supabas
 
 This repository is designed to showcase end-to-end product work: frontend UX, authenticated flows, database design, edge-function orchestration, admin tooling, and production deployment preparation.
 
-## Why This Project Stands Out
+## Live Demo
 
-- Full-stack architecture: React frontend, Supabase Auth, Postgres, SQL migrations, and edge functions.
-- Real user workflows: symptom analysis, report analysis, health tracking, reminders, history, and admin moderation.
-- Production-minded design: route protection, audit logging, environment-based config, security headers, and deployment docs.
-- Recruiter-friendly scope: one project that demonstrates product thinking, UI work, backend integration, and data modeling together.
+- App: https://project-14snn.vercel.app
 
-## Core Features
+## Screenshots
+
+### Homepage Hero
+
+![MediBrief homepage hero](./docs/github/screenshots/homepage-hero.png)
+
+### Feature Overview
+
+![MediBrief feature overview](./docs/github/screenshots/homepage-features.png)
+
+## Features
 
 - AI symptom analysis with structured possible conditions, urgency, and follow-up guidance.
 - Medical report analysis from pasted text, PDFs, or images.
@@ -21,30 +28,50 @@ This repository is designed to showcase end-to-end product work: frontend UX, au
 - Authentication with email/password and Google sign-in.
 - Admin console for user moderation, audit logging, and managed health content.
 
-## Architecture
+## Tech Stack
 
 ### Frontend
 
-- React 18 + Vite
+- React 18
 - TypeScript
+- Vite
 - React Router
 - TanStack Query
-- Tailwind CSS + shadcn/ui + Radix UI
+
+### UI and UX
+
+- Tailwind CSS
+- shadcn/ui
+- Radix UI
 - Framer Motion
 
 ### Backend and Platform
 
 - Supabase Auth
 - Supabase PostgreSQL
-- SQL migrations for schema and policy management
-- Supabase Edge Functions for AI, email, and reminder workflows
-- Vercel-ready frontend deployment
+- SQL migrations
+- Supabase Edge Functions
+- Vercel-ready deployment setup
 
 ### External Services
 
 - Gemini or Lovable gateway for AI analysis
 - Resend or Brevo for email delivery
 - Twilio for SMS reminders
+
+## How It Works
+
+1. Users choose a workflow such as symptom analysis, report analysis, AI chat, or health tracking.
+2. The React frontend collects input and sends it to Supabase-backed APIs and edge functions.
+3. AI and backend services return summaries, possible conditions, urgency cues, reminders, and saved history.
+4. Signed-in users get personalized flows such as report history, medication reminders, and dashboard insights.
+
+## Why This Project Stands Out
+
+- Full-stack architecture: React frontend, Supabase Auth, Postgres, SQL migrations, and edge functions.
+- Real user workflows: symptom analysis, report analysis, health tracking, reminders, history, and admin moderation.
+- Production-minded design: route protection, audit logging, environment-based config, security headers, and deployment docs.
+- Recruiter-friendly scope: one project that demonstrates product thinking, UI work, backend integration, and data modeling together.
 
 ## Project Structure
 
@@ -85,7 +112,7 @@ This repository is designed to showcase end-to-end product work: frontend UX, au
 
 ```bash
 git clone <repository-url>
-cd health-compass-ai
+cd MediBrief
 npm install
 ```
 

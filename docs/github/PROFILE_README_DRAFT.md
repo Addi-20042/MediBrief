@@ -17,7 +17,33 @@ Right now I am focused on:
 ### MediBrief
 AI-powered health assistant with symptom analysis, medical report understanding, chatbot workflows, health tracking, medication reminders, and an admin console.
 
-**Tech:** React, TypeScript, Vite, Supabase, SQL, Tailwind CSS, shadcn/ui, Edge Functions
+[Repository](https://github.com/Addi-20042/MediBrief) | [Live Demo](https://project-14snn.vercel.app)
+
+![MediBrief Hero](https://raw.githubusercontent.com/Addi-20042/MediBrief/main/docs/github/screenshots/homepage-hero.png)
+![MediBrief Features](https://raw.githubusercontent.com/Addi-20042/MediBrief/main/docs/github/screenshots/homepage-features.png)
+
+**Features**
+- AI symptom analysis
+- Medical report analysis
+- Health tracking
+- Medication reminders
+- AI chatbot
+- Admin console
+
+**Tech Stack**
+- React
+- TypeScript
+- Vite
+- Supabase
+- PostgreSQL
+- Tailwind CSS
+- shadcn/ui
+- Edge Functions
+
+**How it works**
+- Users enter symptoms, upload reports, or open chat and tracking tools.
+- The frontend sends requests to Supabase-backed services and edge functions.
+- The app returns structured health insights, saves history, and powers reminders for signed-in users.
 
 ### Add your next 2 strongest projects here
 - One frontend-heavy project
