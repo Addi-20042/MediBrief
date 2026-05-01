@@ -1,8 +1,8 @@
 # MediBrief
 
-MediBrief is a full-stack health assistant built with React, TypeScript, Supabase, and serverless edge functions. It helps users analyze symptoms, understand medical reports, chat with an AI assistant, track daily health metrics, and manage medication reminders from one product.
+MediBrief is an AI-assisted health data project built with React, TypeScript, Supabase, PostgreSQL, and serverless edge functions. It helps users analyze symptoms, understand medical reports, chat with an AI assistant, track daily health metrics, and manage medication reminders from one product.
 
-This repository is designed to showcase end-to-end product work: frontend UX, authenticated flows, database design, edge-function orchestration, admin tooling, and production deployment preparation.
+This repository is positioned for data analyst review: it shows structured health data capture, SQL schema design, user history, reminder logs, report summaries, admin monitoring, and clear documentation around sensitive data workflows.
 
 ## Live Demo
 
@@ -27,6 +27,14 @@ This repository is designed to showcase end-to-end product work: frontend UX, au
 - Medication reminders with logs and SMS reminder flows.
 - Authentication with email/password and Google sign-in.
 - Admin console for user moderation, audit logging, and managed health content.
+
+## Data Analyst Focus
+
+- **Structured health records:** user profiles, report history, symptom inputs, health metrics, medication reminders, dose logs, and admin audit events.
+- **SQL data modeling:** Supabase PostgreSQL migrations define reproducible tables, relationships, and RPC-style admin workflows.
+- **Data interpretation:** symptom and report workflows convert unstructured user input into readable summaries, urgency cues, and saved history.
+- **Operational monitoring:** admin tools, audit logs, moderation flows, and reminder delivery records support governance-minded analysis.
+- **Dashboard thinking:** health tracking and history pages organize repeated measurements such as weight, blood pressure, sugar, sleep, hydration, steps, and mood.
 
 ## Tech Stack
 
@@ -68,10 +76,10 @@ This repository is designed to showcase end-to-end product work: frontend UX, au
 
 ## Why This Project Stands Out
 
-- Full-stack architecture: React frontend, Supabase Auth, Postgres, SQL migrations, and edge functions.
-- Real user workflows: symptom analysis, report analysis, health tracking, reminders, history, and admin moderation.
-- Production-minded design: route protection, audit logging, environment-based config, security headers, and deployment docs.
-- Recruiter-friendly scope: one project that demonstrates product thinking, UI work, backend integration, and data modeling together.
+- Data-centered architecture: PostgreSQL schema, SQL migrations, user history, reminder logs, health tracking records, and audit trails.
+- Real analytical workflows: symptom analysis, report analysis, health metrics tracking, reminders, history, and admin monitoring.
+- Production-minded design: route protection, privacy pages, audit logging, environment-based config, security headers, and deployment docs.
+- Recruiter-friendly scope: one project that demonstrates data modeling, analytical product thinking, dashboard workflows, and technical implementation together.
 
 ## Project Structure
 
@@ -169,11 +177,11 @@ npm run test:watch
 
 If you are reviewing this repository as part of a hiring process, this project demonstrates:
 
-- frontend product development in React and TypeScript
-- backend integration with Supabase and serverless functions
-- database schema design and SQL migration work
-- authentication and access control
-- admin workflows and moderation tooling
+- SQL database schema design and migration work
+- structured health-data capture and history tracking
+- dashboard-style organization of user metrics, reminders, and reports
+- data governance details such as authentication, role checks, audit logs, and privacy pages
+- AI-assisted summarization workflows for unstructured symptom and report inputs
 - deployment preparation and production-oriented documentation
 
 ## Important Disclaimer
